@@ -1,0 +1,7 @@
+jupyterlab
+servicex-cli
+servicex
+awkward
+uproot
+func_adl_servicex_xaodr21
+ipywidgets
