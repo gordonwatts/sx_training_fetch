@@ -2,6 +2,7 @@ jupyterlab
 servicex-cli
 servicex
 awkward
+dask_awkward==2024.2.0
 uproot
-func_adl_servicex_xaodr21
+func_adl_servicex_xaodr21>=2.0a1
 ipywidgets
