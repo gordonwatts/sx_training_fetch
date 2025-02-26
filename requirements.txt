@@ -1,9 +1,15 @@
 jupyterlab
-servicex-cli
-servicex
-awkward
-dask_awkward==2024.2.0
-uproot
-func_adl_servicex
-func_adl_servicex_xaodr21>=2.0a1
 ipywidgets
+awkward
+dask_awkward
+uproot
+
+func_adl_xAOD
+git+https://github.com/gordonwatts/ServiceX-Local.git@feat/injection
+git+https://github.com/ssl-hep/ServiceX_frontend.git@feat/register-backend
+func_adl_servicex_xaodr22
+servicex-cli
+
+# Tools
+black
+typer
