@@ -9,6 +9,7 @@ description = "A package for fetching calratio training data"
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
 dependencies = [
     "awkward",
+    "pyarrow",
     "dask_awkward",
     "uproot",
     "func_adl_xAOD",
@@ -16,6 +17,7 @@ dependencies = [
     # "git+https://github.com/ssl-hep/ServiceX_frontend.git@feat/register-backend",
     "func_adl_servicex_xaodr22",
     "servicex-cli",
+    "servicex-analysis-utils"
 ]
 
 [project.optional-dependencies]
