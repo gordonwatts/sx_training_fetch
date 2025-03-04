@@ -1,3 +1,5 @@
+jupyterlab
+ipywidgets
 awkward
 dask_awkward
 uproot
