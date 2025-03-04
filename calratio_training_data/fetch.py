@@ -122,7 +122,7 @@ def main(
     """
     Fetch training data for cal ratio.
     """
-    set_logging(verbosity.count)
+    set_logging(int(verbosity))
     fetch_dataset(dataset)
 
 
