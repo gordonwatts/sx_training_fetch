@@ -22,4 +22,4 @@ dependencies = [
 dev = ["black", "typer"]
 
 [project.scripts]
-calratio_training_data = "calratio_training_data.fetch:main"
+calratio_training_data = "calratio_training_data.fetch:run_from_command"

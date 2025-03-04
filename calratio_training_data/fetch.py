@@ -111,7 +111,7 @@ def set_logging(verbosity: int):
 
 def main(
     dataset: str = typer.Argument(..., help="The data source"),
-    verbosity: int = typer.Option(
+    verbosity=typer.Option(
         0,
         "--verbose",
         "-v",
@@ -122,9 +122,10 @@ def main(
     """
     Fetch training data for cal ratio.
     """
-    set_logging(verbosity)
+    set_logging(verbosity.count)
     fetch_dataset(dataset)
 
 
-if __name__ == "__main__":
+def run_from_command():
+    "Run from the command line - this is the default"
     typer.run(main)
