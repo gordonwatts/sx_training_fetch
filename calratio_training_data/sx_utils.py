@@ -1,16 +1,19 @@
 import logging
-from typing import Tuple
-from servicex import dataset, ServiceXSpec, Sample
+import re
 from enum import Enum
 from pathlib import Path
-import re
+from typing import Tuple
+
+from servicex import Sample, ServiceXSpec, dataset
 
 
 class SXLocationOptions(Enum):
     """Options for which backend we can use"""
+
     mustUseLocal = "mustUseLocal"
     mustUseRemote = "mustUseRemote"
     anyLocation = "anyLocation"
+
 
 def build_sx_spec(query, ds_name: str) -> Tuple[ServiceXSpec, str]:
     """Build a ServiceX spec from the given query and dataset."""
@@ -40,7 +43,10 @@ def build_sx_spec(query, ds_name: str) -> Tuple[ServiceXSpec, str]:
 
     return spec, backend_name
 
-def find_dataset(ds_name: str) -> Tuple[dataset.FileList | dataset.Rucio, SXLocationOptions]:
+
+def find_dataset(
+    ds_name: str,
+) -> Tuple[dataset.FileList | dataset.Rucio, SXLocationOptions]:
     """Use heuristics to determine what it is we are after here.
     This function will return a dataset object that can be used to fetch the data.
     It will try to figure out if the input is a URL, a local file, or a Rucio dataset.
@@ -66,6 +72,7 @@ def find_dataset(ds_name: str) -> Tuple[dataset.FileList | dataset.Rucio, SXLoca
             logging.debug(f"Interpreting dataset as Rucio dataset: {ds_name}")
             return dataset.Rucio(ds_name), SXLocationOptions.mustUseRemote
 
+
 def install_sx_local() -> tuple[str, str]:
     """
     Set up and register a local ServiceX endpoint for data transformation.
@@ -77,12 +84,8 @@ def install_sx_local() -> tuple[str, str]:
     Returns:
         tuple: A tuple containing the names of the codegen and backend.
     """
-    from servicex_local import (
-        LocalXAODCodegen,
-        SXLocalAdaptor,
-        DockerScienceImage,
-    )
     from servicex.configuration import Configuration, Endpoint
+    from servicex_local import DockerScienceImage, LocalXAODCodegen, SXLocalAdaptor
     from servicex_local.adaptor import MinioLocalAdaptor
 
     codegen_name = "atlasr22-local"
@@ -106,5 +109,7 @@ def install_sx_local() -> tuple[str, str]:
         )
     )
 
-    logging.info(f"Using local ServiceX endpoint: {backend_name} with codegen {codegen_name}")
+    logging.info(
+        f"Using local ServiceX endpoint: {backend_name} with codegen {codegen_name}"
+    )
     return codegen_name, backend_name

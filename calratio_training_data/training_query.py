@@ -1,10 +1,13 @@
 import logging
+
+import awkward as ak
+import servicex as sx
 from servicex import ServiceXSpec
 from servicex.dataset_identifier import FileListDataset, RucioDatasetIdentifier
-from .sx_utils import build_sx_spec
-import servicex as sx
 from servicex_analysis_utils import to_awk
-import awkward as ak
+
+from .sx_utils import build_sx_spec
+
 
 def fetch_training_data(ds_name: str):
     """
@@ -15,22 +18,22 @@ def fetch_training_data(ds_name: str):
     """
     # Start the query
     from func_adl_servicex_xaodr22 import FuncADLQueryPHYSLITE
+
     query_base = FuncADLQueryPHYSLITE()
 
     # Query the run number, etc.
-    query = (query_base
-             .Select(lambda e:
-                     {
-                         "runNumber": e.EventInfo("EventInfo").runNumber(),
-                         "eventNumber": e.EventInfo("EventInfo").eventNumber(),
-                     })
+    query = query_base.Select(
+        lambda e: {
+            "runNumber": e.EventInfo("EventInfo").runNumber(),
+            "eventNumber": e.EventInfo("EventInfo").eventNumber(),
+        }
     )
 
     # Build the ServiceX spec and run it.
     spec, backend_name = build_sx_spec(query, ds_name)
-    result_list = to_awk(sx.deliver(spec, servicex_name=backend_name))['MySample']
+    result_list = to_awk(sx.deliver(spec, servicex_name=backend_name))["MySample"]
 
     logging.info(f"Received {len(result_list)} entries.")
 
     # Finally, write it out into a training file.
-    ak.to_parquet(result_list, 'training.parquet')
+    ak.to_parquet(result_list, "training.parquet")

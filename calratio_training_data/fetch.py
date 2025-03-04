@@ -1,5 +1,7 @@
 import logging
+
 import typer
+
 
 def set_logging(verbosity: int):
     """
@@ -31,6 +33,7 @@ def main(
     """
     set_logging(int(verbosity))
     from .training_query import fetch_training_data
+
     fetch_training_data(dataset)
 
 
