@@ -21,6 +21,7 @@
     "PHYSLITE",
     "pipenv",
     "Pipfile",
+    "Preselection",
     "pyarrow",
     "pycache",
     "pyenv",
