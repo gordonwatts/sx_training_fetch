@@ -12,13 +12,20 @@ from .sx_utils import build_sx_spec
 
 from func_adl_servicex_xaodr22.xAOD.eventinfo_v1 import EventInfo_v1
 from func_adl_servicex_xaodr22.xAOD.vertex_v1 import Vertex_v1
+from func_adl_servicex_xaodr22.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr22 import FADLStream
 
 
 @dataclass
 class TopLevelEvent:
+    """Make it easy to type-safe carry everything around.
+
+    Note: SX will only evaluate the terms that are actually asked for in the final query!
+    """
+
     event_info: EventInfo_v1
-    verbose: FADLStream[Vertex_v1]
+    verticies: FADLStream[Vertex_v1]
+    pv_tracks: FADLStream[TrackParticle_v1]
 
 
 def fetch_training_data(ds_name: str):
@@ -52,7 +59,7 @@ def fetch_training_data(ds_name: str):
         lambda e: {
             "runNumber": e["event_info"].runNumber(),
             "eventNumber": e["event_info"].eventNumber(),
-            "track_pT": e["pv_tracks"].Select(lambda t: t.pt()),
+            "track_pT": [t.pt() for t in e["pv_tracks"]],
         }
     )
 
