@@ -32,7 +32,7 @@ def main(
     Fetch training data for cal ratio.
     """
     set_logging(int(verbosity))
-    from .training_query import fetch_training_data
+    from calratio_training_data.training_query import fetch_training_data
 
     fetch_training_data(dataset)
 
@@ -40,3 +40,7 @@ def main(
 def run_from_command():
     "Run from the command line - this is the default"
     typer.run(main)
+
+
+if __name__ == "__main__":
+    run_from_command()
