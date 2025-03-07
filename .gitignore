@@ -137,3 +137,5 @@ cython_debug/
 servicex.yaml
 *.root
 *.parquet
+
+*.code-workspace
