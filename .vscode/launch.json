@@ -1,0 +1,18 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: fetch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "calratio_training_data/fetch.py",
+            "console": "integratedTerminal",
+            "args": [
+                "DAOD_LLP1.outputLLP1_mc23_537565_trigger.pool.root"
+            ]
+        }
+    ]
+}
