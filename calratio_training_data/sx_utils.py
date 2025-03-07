@@ -94,7 +94,7 @@ def install_sx_local() -> tuple[str, str]:
     codegen = LocalXAODCodegen()
     # science_runner = WSL2ScienceImage("atlas_al9", "25.2.12")
     science_runner = DockerScienceImage(
-        "sslhep/servicex_func_adl_xaod_transformer:22.2.107"
+        "sslhep/servicex_func_adl_xaod_transformer:25.2.41"
     )
     adaptor = SXLocalAdaptor(
         codegen, science_runner, codegen_name, "http://localhost:5001"
