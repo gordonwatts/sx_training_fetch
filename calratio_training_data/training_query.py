@@ -1,19 +1,17 @@
-from dataclasses import dataclass
 import logging
-from tabnanny import verbose
+from dataclasses import dataclass
 
 import awkward as ak
 import servicex as sx
-from servicex import ServiceXSpec
-from servicex.dataset_identifier import FileListDataset, RucioDatasetIdentifier
+from func_adl_servicex_xaodr25 import FADLStream
+from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
+from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
+from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
+from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
+from func_adl_servicex_xaodr25 import FuncADLQueryPHYSLITE
 from servicex_analysis_utils import to_awk
 
 from .sx_utils import build_sx_spec
-
-from func_adl_servicex_xaodr22.xAOD.eventinfo_v1 import EventInfo_v1
-from func_adl_servicex_xaodr22.xAOD.vertex_v1 import Vertex_v1
-from func_adl_servicex_xaodr22.xAOD.trackparticle_v1 import TrackParticle_v1
-from func_adl_servicex_xaodr22 import FADLStream
 
 
 @dataclass
@@ -36,22 +34,26 @@ def fetch_training_data(ds_name: str):
         ds_name (str): The name or identifier of the dataset to fetch.
     """
     # Start the query
-    from func_adl_servicex_xaodr22 import FuncADLQueryPHYSLITE
-
     query_base = FuncADLQueryPHYSLITE()
 
     # Establish all the various types of objects we need.
     query_base_objects = query_base.Select(
         lambda e: {
             "event_info": e.EventInfo("EventInfo"),
-            "vertices": e.Vertices("PrimaryVertices"),
-            "pv_tracks": e.Vertices("PrimaryVertices").First().trackParticleLinks(),
+            "vertices": e.Vertices("PrimaryVertices").Where(
+                lambda v: v.vertexType() == 1
+            ),  # VxType.VertexType.PriVtx
+            "pv_tracks": e.Vertices("PrimaryVertices")
+            .Where(lambda v: v.vertexType() == 1)  # VxType.VertexType.PriVtx
+            .First()
+            .trackParticleLinks()
+            .Where(lambda t: t.isValid()),
         }
     )
 
     # Preselection
     query_preselection = query_base_objects.Where(
-        lambda e: e["vertices"].First().nTrackParticles() > 0
+        lambda e: len(e["vertices"]) > 0 and e["vertices"].First().nTrackParticles() > 0
     )
 
     # Query the run number, etc.
