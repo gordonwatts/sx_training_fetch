@@ -41,13 +41,15 @@ def fetch_training_data(ds_name: str):
         lambda e: {
             "event_info": e.EventInfo("EventInfo"),
             "vertices": e.Vertices("PrimaryVertices").Where(
-                lambda v: v.vertexType() == 1
-            ),  # VxType.VertexType.PriVtx
-            "pv_tracks": e.Vertices("PrimaryVertices")
-            .Where(lambda v: v.vertexType() == 1)  # VxType.VertexType.PriVtx
-            .First()
-            .trackParticleLinks()
-            .Where(lambda t: t.isValid()),
+                lambda v: v.vertexType() == 1  # VxType.VertexType.PriVtx
+            ),
+            "pv_tracks": (
+                e.Vertices("PrimaryVertices")
+                .Where(lambda v: v.vertexType() == 1)  # VxType.VertexType.PriVtx
+                .First()
+                .trackParticleLinks()
+                .Where(lambda t: t.isValid())
+            ),
         }
     )
 
@@ -62,6 +64,7 @@ def fetch_training_data(ds_name: str):
             "runNumber": e["event_info"].runNumber(),
             "eventNumber": e["event_info"].eventNumber(),
             "track_pT": [t.pt() for t in e["pv_tracks"]],
+            "track_eta": [t.eta() for t in e["pv_tracks"]],
         }
     )
 
