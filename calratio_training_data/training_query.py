@@ -37,15 +37,16 @@ def fetch_training_data(ds_name: str):
     query_base = FuncADLQueryPHYSLITE()
 
     # Establish all the various types of objects we need.
+    pv_type = VxType.VertexType.PriVtx.value
     query_base_objects = query_base.Select(
         lambda e: {
             "event_info": e.EventInfo("EventInfo"),
-            "vertices": e.Vertices("PrimaryVertices").Where(
-                lambda v: v.vertexType() == 1  # VxType.VertexType.PriVtx
+            "vertices": (
+                e.Vertices("PrimaryVertices").Where(lambda v: v.vertexType() == pv_type)
             ),
             "pv_tracks": (
                 e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == 1)  # VxType.VertexType.PriVtx
+                .Where(lambda v: v.vertexType() == pv_type)  # VxType.VertexType.PriVtx
                 .First()
                 .trackParticleLinks()
                 .Where(lambda t: t.isValid())
