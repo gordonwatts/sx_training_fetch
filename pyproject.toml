@@ -13,11 +13,12 @@ dependencies = [
     "dask_awkward",
     "uproot",
     "func_adl_xAOD",
+    "func_adl==3.4.0b6",
     # "git+https://github.com/gordonwatts/ServiceX-Local.git@feat/injection",
     # "git+https://github.com/ssl-hep/ServiceX_frontend.git@feat/register-backend",
-    "func_adl_servicex_xaodr22",
+    "func_adl_servicex_xaodr25",
     "servicex-cli",
-    "servicex-analysis-utils"
+    "servicex-analysis-utils",
 ]
 
 [project.optional-dependencies]

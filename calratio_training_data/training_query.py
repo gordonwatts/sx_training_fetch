@@ -22,7 +22,7 @@ class TopLevelEvent:
     """
 
     event_info: EventInfo_v1
-    verticies: FADLStream[Vertex_v1]
+    vertices: FADLStream[Vertex_v1]
     pv_tracks: FADLStream[TrackParticle_v1]
 
 
