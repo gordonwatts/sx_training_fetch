@@ -49,14 +49,14 @@ def fetch_training_data(ds_name: str):
                 .Where(lambda v: v.vertexType() == pv_type)  # VxType.VertexType.PriVtx
                 .First()
                 .trackParticleLinks()
-                .Where(lambda t: t.isValid())
+                .Where(lambda t: t.isValid())  # type: ignore
             ),
         )
     )
 
     # Preselection
     query_preselection = query_base_objects.Where(
-        lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0
+        lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0  # type: ignore
     )
 
     # Query the run number, etc.
