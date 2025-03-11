@@ -62,7 +62,7 @@ def fetch_training_data(ds_name: str):
     # Query the run number, etc.
     query = query_preselection.Select(
         lambda e: {
-            "runNumber": e["event_info"].runNumber(),
+            "runNumberr": e["event_info"].runNumber(),
             "eventNumber": e["event_info"].eventNumber(),
             "track_pT": [t.pt() for t in e["pv_tracks"]],
             "track_eta": [t.eta() for t in e["pv_tracks"]],
@@ -71,7 +71,11 @@ def fetch_training_data(ds_name: str):
 
     # Build the ServiceX spec and run it.
     spec, backend_name = build_sx_spec(query, ds_name)
-    result_list = to_awk(sx.deliver(spec, servicex_name=backend_name))["MySample"]
+    result_list = to_awk(
+        sx.deliver(
+            spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
+        )
+    )["MySample"]
 
     logging.info(f"Received {len(result_list)} entries.")
 
