@@ -39,39 +39,43 @@ def fetch_training_data(ds_name: str):
     # Establish all the various types of objects we need.
     pv_type = VxType.VertexType.PriVtx.value
     query_base_objects = query_base.Select(
-        lambda e: {
-            "event_info": e.EventInfo("EventInfo"),
-            "vertices": (
-                e.Vertices("PrimaryVertices").Where(lambda v: v.vertexType() == pv_type)
+        lambda e: TopLevelEvent(
+            event_info=e.EventInfo("EventInfo"),
+            vertices=e.Vertices("PrimaryVertices").Where(
+                lambda v: v.vertexType() == pv_type
             ),
-            "pv_tracks": (
+            pv_tracks=(
                 e.Vertices("PrimaryVertices")
                 .Where(lambda v: v.vertexType() == pv_type)  # VxType.VertexType.PriVtx
                 .First()
                 .trackParticleLinks()
-                .Where(lambda t: t.isValid())
+                .Where(lambda t: t.isValid())  # type: ignore
             ),
-        }
+        )
     )
 
     # Preselection
     query_preselection = query_base_objects.Where(
-        lambda e: len(e["vertices"]) > 0 and e["vertices"].First().nTrackParticles() > 0
+        lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0  # type: ignore
     )
 
     # Query the run number, etc.
     query = query_preselection.Select(
         lambda e: {
-            "runNumber": e["event_info"].runNumber(),
-            "eventNumber": e["event_info"].eventNumber(),
-            "track_pT": [t.pt() for t in e["pv_tracks"]],
-            "track_eta": [t.eta() for t in e["pv_tracks"]],
+            "runNumber": e.event_info.runNumber(),
+            "eventNumber": e.event_info.eventNumber(),
+            "track_pT": [t.pt() for t in e.pv_tracks],
+            "track_eta": [t.eta() for t in e.pv_tracks],
         }
     )
 
     # Build the ServiceX spec and run it.
     spec, backend_name = build_sx_spec(query, ds_name)
-    result_list = to_awk(sx.deliver(spec, servicex_name=backend_name))["MySample"]
+    result_list = to_awk(
+        sx.deliver(
+            spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
+        )
+    )["MySample"]
 
     logging.info(f"Received {len(result_list)} entries.")
 
