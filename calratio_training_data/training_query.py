@@ -133,7 +133,7 @@ def fetch_training_data(ds_name: str):
         lambda e: {
             "runNumber": e.event_info.runNumber(),
             "eventNumber": e.event_info.eventNumber(),
-            "track_pT": [t.pt() for t in e.pv_tracks],
+            "track_pT": [t.pt() / 1000.0 for t in e.pv_tracks],
             "track_eta": [t.eta() for t in e.pv_tracks],
             "track_phi": [t.phi() for t in e.pv_tracks],
             # TODO: If we are limiting tracks to the PV, is there any point in this
