@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Tuple, TypeVar
 
 import awkward as ak
-from func_adl import ObjectStream
 from func_adl import ObjectStream, func_adl_callable
 import servicex as sx
 from func_adl_servicex_xaodr25 import FADLStream
@@ -31,48 +30,6 @@ class TopLevelEvent:
     pv_tracks: FADLStream[TrackParticle_v1]
 
 
-def build_preselection():
-    # Start the query
-    query_base = FuncADLQueryPHYSLITE()
-
-    # Establish all the various types of objects we need.
-    pv_type = VxType.VertexType.PriVtx.value
-    query_base_objects = query_base.Select(
-        lambda e: TopLevelEvent(
-            event_info=e.EventInfo("EventInfo"),
-            vertices=e.Vertices("PrimaryVertices").Where(
-                lambda v: v.vertexType() == pv_type
-            ),
-            pv_tracks=(
-                e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == pv_type)
-                .First()
-                .trackParticleLinks()
-                .Where(lambda t: t.isValid())  # type: ignore
-            ),
-        )
-    )
-
-    # Preselection
-    query_preselection = query_base_objects.Where(
-        lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0  # type: ignore
-    )
-
-    return query_preselection
-
-
-def run_query(ds_name: str, query: ObjectStream):
-    # Build the ServiceX spec and run it.
-    spec, backend_name = build_sx_spec(query, ds_name)
-    result_list = to_awk(
-        sx.deliver(
-            spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
-        )
-    )["MySample"]
-
-    logging.info(f"Received {len(result_list)} entries.")
-
-    return result_list
 T = TypeVar("T")
 
 
@@ -131,14 +88,7 @@ def trackSummaryValue(trk: TrackParticle_v1, value_selector: int) -> int:
     ...
 
 
-def fetch_training_data(ds_name: str):
-    """
-    Fetch the specified dataset.
-
-    Args:
-        ds_name (str): The name or identifier of the dataset to fetch.
-    """
-    query_preselection = build_preselection()
+def build_preselection():
     # Start the query
     query_base = FuncADLQueryPHYSLITE()
 
@@ -152,7 +102,7 @@ def fetch_training_data(ds_name: str):
             ),
             pv_tracks=(
                 e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == pv_type)  # VxType.VertexType.PriVtx
+                .Where(lambda v: v.vertexType() == pv_type)
                 .First()
                 .trackParticleLinks()
                 .Where(lambda t: t.isValid())  # type: ignore
@@ -164,6 +114,19 @@ def fetch_training_data(ds_name: str):
     query_preselection = query_base_objects.Where(
         lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0  # type: ignore
     )
+
+    return query_preselection
+
+
+def fetch_training_data(ds_name: str):
+    """
+    Fetch the specified dataset.
+
+    Args:
+        ds_name (str): The name or identifier of the dataset to fetch.
+    """
+    # Get the base query
+    query_preselection = build_preselection()
 
     v_PixelShared = xAOD.SummaryType.numberOfPixelSharedHits.value
     v_SCTShared = xAOD.SummaryType.numberOfSCTSharedHits.value
@@ -179,10 +142,6 @@ def fetch_training_data(ds_name: str):
             "eventNumber": e.event_info.eventNumber(),
             "track_pT": [t.pt() / 1000.0 for t in e.pv_tracks],
             "track_eta": [t.eta() for t in e.pv_tracks],
-        }
-    )
-
-    return run_query(ds_name, query)
             "track_phi": [t.phi() for t in e.pv_tracks],
             # TODO: If we are limiting tracks to the PV, is there any point in this
             # input variable?
@@ -204,6 +163,17 @@ def fetch_training_data(ds_name: str):
         }
     )
 
+    return run_query(ds_name, query)
+
+
+def fetch_training_data_to_file(ds_name: str):
+    result_list = fetch_training_data(ds_name)
+
+    # Finally, write it out into a training file.
+    ak.to_parquet(result_list, "training.parquet")
+
+
+def run_query(ds_name: str, query: ObjectStream):
     # Build the ServiceX spec and run it.
     spec, backend_name = build_sx_spec(query, ds_name)
     result_list = to_awk(
@@ -212,9 +182,6 @@ def fetch_training_data(ds_name: str):
         )
     )["MySample"]
 
+    logging.info(f"Received {len(result_list)} entries.")
 
-def fetch_training_data_to_file(ds_name: str):
-    result_list = fetch_training_data(ds_name)
-
-    # Finally, write it out into a training file.
-    ak.to_parquet(result_list, "training.parquet")
+    return result_list
