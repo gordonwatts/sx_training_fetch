@@ -88,13 +88,7 @@ def trackSummaryValue(trk: TrackParticle_v1, value_selector: int) -> int:
     ...
 
 
-def fetch_training_data(ds_name: str):
-    """
-    Fetch the specified dataset.
-
-    Args:
-        ds_name (str): The name or identifier of the dataset to fetch.
-    """
+def build_preselection():
     # Start the query
     query_base = FuncADLQueryPHYSLITE()
 
@@ -108,7 +102,7 @@ def fetch_training_data(ds_name: str):
             ),
             pv_tracks=(
                 e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == pv_type)  # VxType.VertexType.PriVtx
+                .Where(lambda v: v.vertexType() == pv_type)
                 .First()
                 .trackParticleLinks()
                 .Where(lambda t: t.isValid())  # type: ignore
@@ -120,6 +114,19 @@ def fetch_training_data(ds_name: str):
     query_preselection = query_base_objects.Where(
         lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0  # type: ignore
     )
+
+    return query_preselection
+
+
+def fetch_training_data(ds_name: str):
+    """
+    Fetch the specified dataset.
+
+    Args:
+        ds_name (str): The name or identifier of the dataset to fetch.
+    """
+    # Get the base query
+    query_preselection = build_preselection()
 
     v_PixelShared = xAOD.SummaryType.numberOfPixelSharedHits.value
     v_SCTShared = xAOD.SummaryType.numberOfSCTSharedHits.value
@@ -156,6 +163,17 @@ def fetch_training_data(ds_name: str):
         }
     )
 
+    return run_query(ds_name, query)
+
+
+def fetch_training_data_to_file(ds_name: str):
+    result_list = fetch_training_data(ds_name)
+
+    # Finally, write it out into a training file.
+    ak.to_parquet(result_list, "training.parquet")
+
+
+def run_query(ds_name: str, query: ObjectStream):
     # Build the ServiceX spec and run it.
     spec, backend_name = build_sx_spec(query, ds_name)
     result_list = to_awk(
@@ -166,5 +184,4 @@ def fetch_training_data(ds_name: str):
 
     logging.info(f"Received {len(result_list)} entries.")
 
-    # Finally, write it out into a training file.
-    ak.to_parquet(result_list, "training.parquet")
+    return result_list
