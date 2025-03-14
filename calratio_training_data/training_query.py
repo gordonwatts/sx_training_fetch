@@ -10,6 +10,7 @@ from func_adl_servicex_xaodr25 import FADLStream
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
+from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25 import FuncADLQueryPHYSLITE
@@ -28,6 +29,7 @@ class TopLevelEvent:
     event_info: EventInfo_v1
     vertices: FADLStream[Vertex_v1]
     pv_tracks: FADLStream[TrackParticle_v1]
+    muon_segments: FADLStream[MuonSegment_v1]
 
 
 T = TypeVar("T")
@@ -107,6 +109,7 @@ def build_preselection():
                 .trackParticleLinks()
                 .Where(lambda t: t.isValid())  # type: ignore
             ),
+            muon_segments=e.MuonSegments("MuonSegments"),
         )
     )
 
@@ -140,6 +143,9 @@ def fetch_training_data(ds_name: str):
         lambda e: {
             "runNumber": e.event_info.runNumber(),
             "eventNumber": e.event_info.eventNumber(),
+            #
+            # Track Info
+            #
             "track_pT": [t.pt() / 1000.0 for t in e.pv_tracks],
             "track_eta": [t.eta() for t in e.pv_tracks],
             "track_phi": [t.phi() for t in e.pv_tracks],
@@ -160,6 +166,17 @@ def fetch_training_data(ds_name: str):
             "track_SCTHoles": [trackSummaryValue(t, v_SCTHoles) for t in e.pv_tracks],
             "track_PixelHits": [trackSummaryValue(t, v_PixelHits) for t in e.pv_tracks],
             "track_SCTHits": [trackSummaryValue(t, v_SCTHits) for t in e.pv_tracks],
+            #
+            # Muon Segments. We will convert to eta and phi after we load these guys.
+            #
+            "MSeg_x": [s.x() for s in e.muon_segments],
+            "MSeg_y": [s.y() for s in e.muon_segments],
+            "MSeg_z": [s.z() for s in e.muon_segments],
+            "MSeg_px": [s.px() for s in e.muon_segments],
+            "MSeg_py": [s.py() for s in e.muon_segments],
+            "MSeg_pz": [s.pz() for s in e.muon_segments],
+            "MSeg_t0": [s.t0() for s in e.muon_segments],
+            "MSeg_chiSquared": [s.chiSquared() for s in e.muon_segments],
         }
     )
 
