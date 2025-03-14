@@ -32,9 +32,9 @@ def main(
     Fetch training data for cal ratio.
     """
     set_logging(int(verbosity))
-    from calratio_training_data.training_query import fetch_training_data
+    from calratio_training_data.training_query import fetch_training_data_to_file
 
-    fetch_training_data(dataset)
+    fetch_training_data_to_file(dataset)
 
 
 def run_from_command():
