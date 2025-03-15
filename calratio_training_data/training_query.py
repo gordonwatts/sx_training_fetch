@@ -14,6 +14,10 @@ from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from func_adl_servicex_xaodr25.xaod import xAOD
+from func_adl_servicex_xaodr25.calosampling import CaloSampling
+from func_adl_servicex_xaodr25.elementlink_datavector_xaod_calocluster_v1__ import (
+    ElementLink_DataVector_xAOD_CaloCluster_v1__,
+)
 from func_adl_servicex_xaodr25 import FuncADLQueryPHYS
 from servicex_analysis_utils import to_awk
 
@@ -32,6 +36,7 @@ class TopLevelEvent:
     pv_tracks: FADLStream[TrackParticle_v1]
     muon_segments: FADLStream[MuonSegment_v1]
     jets: FADLStream[Jet_v1]
+    clusters: FADLStream[FADLStream[ElementLink_DataVector_xAOD_CaloCluster_v1__]]
 
 
 T = TypeVar("T")
@@ -117,6 +122,11 @@ def build_preselection():
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
+            clusters=[
+                [cl for cl in j.constituentLinks() if cl.isValid()]
+                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                if j.pt() / 1000.0 > 40.0
+            ],  # type: ignore
         )
     )
 
@@ -159,7 +169,7 @@ def fetch_training_data(ds_name: str):
             # TODO: If we are limiting tracks to the PV, is there any point in this
             # input variable?
             # See bug func_adl/issues/181
-            "track_vertex_nParticles": [len(e.pv_tracks) for t in e.pv_tracks],  # type: ignore
+            # "track_vertex_nParticles": [len(e.pv_tracks) for t in e.pv_tracks],  # type: ignore
             "track_d0": [t.d0() for t in e.pv_tracks],
             "track_z0": [t.z0() for t in e.pv_tracks],
             "track_chiSquared": [t.chiSquared() for t in e.pv_tracks],
@@ -190,6 +200,13 @@ def fetch_training_data(ds_name: str):
             "jet_pt": [j.pt() / 1000.0 for j in e.jets],
             "jet_eta": [j.eta() for j in e.jets],
             "jet_phi": [j.phi() for j in e.jets],
+            #
+            # Clusters
+            #
+            "clus_eta": [[c.eta() for c in c_list] for c_list in e.clusters],
+            "clus_phi": [[c.phi() for c in c_list] for c_list in e.clusters],
+            # TODO: Why is missing ::calM mean we can't load this!?
+            # "clus_pt": [[c.pt() for c in c_list] for c_list in e.clusters],
         }
     )
 
