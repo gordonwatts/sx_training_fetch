@@ -11,9 +11,10 @@ from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
+from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from func_adl_servicex_xaodr25.xaod import xAOD
-from func_adl_servicex_xaodr25 import FuncADLQueryPHYSLITE
+from func_adl_servicex_xaodr25 import FuncADLQueryPHYS
 from servicex_analysis_utils import to_awk
 
 from .sx_utils import build_sx_spec
@@ -30,6 +31,7 @@ class TopLevelEvent:
     vertices: FADLStream[Vertex_v1]
     pv_tracks: FADLStream[TrackParticle_v1]
     muon_segments: FADLStream[MuonSegment_v1]
+    jets: FADLStream[Jet_v1]
 
 
 T = TypeVar("T")
@@ -92,7 +94,7 @@ def trackSummaryValue(trk: TrackParticle_v1, value_selector: int) -> int:
 
 def build_preselection():
     # Start the query
-    query_base = FuncADLQueryPHYSLITE()
+    query_base = FuncADLQueryPHYS()
 
     # Establish all the various types of objects we need.
     pv_type = VxType.VertexType.PriVtx.value
@@ -110,6 +112,11 @@ def build_preselection():
                 .Where(lambda t: t.isValid())  # type: ignore
             ),
             muon_segments=e.MuonSegments("MuonSegments"),
+            jets=[
+                j
+                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                if j.pt() / 1000.0 > 40.0
+            ],  # type: ignore
         )
     )
 
@@ -177,6 +184,12 @@ def fetch_training_data(ds_name: str):
             "MSeg_pz": [s.pz() for s in e.muon_segments],
             "MSeg_t0": [s.t0() for s in e.muon_segments],
             "MSeg_chiSquared": [s.chiSquared() for s in e.muon_segments],
+            #
+            # Jets
+            #
+            "jet_pt": [j.pt() / 1000.0 for j in e.jets],
+            "jet_eta": [j.eta() for j in e.jets],
+            "jet_phi": [j.phi() for j in e.jets],
         }
     )
 
