@@ -14,7 +14,7 @@ from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from func_adl_servicex_xaodr25.xaod import xAOD
-from func_adl_servicex_xaodr25 import FuncADLQueryPHYSLITE
+from func_adl_servicex_xaodr25 import FuncADLQueryPHYS
 from servicex_analysis_utils import to_awk
 
 from .sx_utils import build_sx_spec
@@ -94,7 +94,7 @@ def trackSummaryValue(trk: TrackParticle_v1, value_selector: int) -> int:
 
 def build_preselection():
     # Start the query
-    query_base = FuncADLQueryPHYSLITE()
+    query_base = FuncADLQueryPHYS()
 
     # Establish all the various types of objects we need.
     pv_type = VxType.VertexType.PriVtx.value
