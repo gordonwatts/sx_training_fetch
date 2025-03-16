@@ -89,7 +89,6 @@ def cvt_to_calo_cluster_callback(
             "result": "result",
             "include_files": [],
             "arguments": ["cluster"],
-            # BUG: We should be able to return a pointer here.
             "return_type": "xAOD::CaloCluster_v1",
         }
     )
@@ -128,7 +127,8 @@ def e_sample_callback(
             "metadata_type": "add_cpp_function",
             "name": "e_sample",
             "code": [
-                "xAOD::CaloCluster_v1::CaloSample st (static_cast<xAOD::CaloCluster_v1::CaloSample>(value_selector));\n"
+                "xAOD::CaloCluster_v1::CaloSample st "
+                "(static_cast<xAOD::CaloCluster_v1::CaloSample>(value_selector));\n"
                 "double result = clus.eSample(st);\n"
             ],
             "result": "result",
@@ -145,7 +145,6 @@ def e_sample(clus: CaloCluster_v1, value_selector: int) -> float:
     """Call the `eSummary` method on a CaloCluster
 
     * Converts the enum integer into a C++ enum and makes the call.
-    * BUG: this here because `func_adl` has gotten over zealous at enum conversion.
 
     Args:
         clus (CaloCluster_v1): The cluster
