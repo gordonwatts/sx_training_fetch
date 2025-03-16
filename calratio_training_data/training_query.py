@@ -1,23 +1,22 @@
-import ast
 import logging
 from dataclasses import dataclass
-from typing import Tuple, TypeVar
 
 import awkward as ak
-from func_adl import ObjectStream, func_adl_callable
 import servicex as sx
-from func_adl_servicex_xaodr25 import FADLStream
+from func_adl import ObjectStream
+from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
+from func_adl_servicex_xaodr25.xaod import xAOD
+from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
+from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
+from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
-from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
-from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
-from func_adl_servicex_xaodr25.xaod import xAOD
-from func_adl_servicex_xaodr25 import FuncADLQueryPHYS
 from servicex_analysis_utils import to_awk
 
 from .sx_utils import build_sx_spec
+from .cpp_xaod_utils import track_summary_value, cvt_to_calo_cluster
 
 
 @dataclass
@@ -32,64 +31,7 @@ class TopLevelEvent:
     pv_tracks: FADLStream[TrackParticle_v1]
     muon_segments: FADLStream[MuonSegment_v1]
     jets: FADLStream[Jet_v1]
-
-
-T = TypeVar("T")
-
-
-def track_summary_value_callback(
-    s: ObjectStream[T], a: ast.Call
-) -> Tuple[ObjectStream[T], ast.Call]:
-    """The trackSummary method returns true/false if the value is there,
-    and alter an argument passed by reference. In short, this isn't functional,
-    so it won't work in `func_adl`. This wraps it to make it "work".
-
-    Args:
-        s (ObjectStream[T]): The stream we are operating against
-        a (ast.Call): The actual call
-
-    Returns:
-        Tuple[ObjectStream[T], ast.Call]: Return the updated stream with the metdata code.
-    """
-    new_s = s.MetaData(
-        {
-            "metadata_type": "add_cpp_function",
-            "name": "trackSummaryValue",
-            "code": [
-                "uint8_t result;\n"
-                "xAOD::SummaryType st (static_cast<xAOD::SummaryType>(value_selector));\n"
-                "if (!(*trk)->summaryValue(result, st)) {\n"
-                "  result = -1;\n"
-                "}\n"
-            ],
-            "result": "result",
-            "include_files": [],
-            "arguments": ["trk", "value_selector"],
-            "return_type": "float",
-        }
-    )
-    return new_s, a
-
-
-# Declare the typing and name of the function to func_adl
-@func_adl_callable(track_summary_value_callback)
-def trackSummaryValue(trk: TrackParticle_v1, value_selector: int) -> int:
-    """Call the `trackSummary` method on a track.
-
-    * Return the value of the value_selector for the track
-    * If it isn't present, return -1.
-
-    Args:
-        trk (TrackParticle_v1): The track we are operating against
-        value_selector (int): Which value (pixel holes, etc.)
-
-    NOTE: This is a dummy function that injects C++ into the object stream to do the
-    actual work.
-
-    Returns:
-        int: Value requested or -1 if not available.
-    """
-    ...
+    clusters: FADLStream[FADLStream[CaloCluster_v1]]
 
 
 def build_preselection():
@@ -114,6 +56,11 @@ def build_preselection():
             muon_segments=e.MuonSegments("MuonSegments"),
             jets=[
                 j
+                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                if j.pt() / 1000.0 > 40.0
+            ],  # type: ignore
+            clusters=[
+                [cvt_to_calo_cluster(cl) for cl in j.getConstituents()]
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
@@ -159,20 +106,24 @@ def fetch_training_data(ds_name: str):
             # TODO: If we are limiting tracks to the PV, is there any point in this
             # input variable?
             # See bug func_adl/issues/181
-            "track_vertex_nParticles": [len(e.pv_tracks) for t in e.pv_tracks],  # type: ignore
+            # "track_vertex_nParticles": [len(e.pv_tracks) for t in e.pv_tracks],  # type: ignore
             "track_d0": [t.d0() for t in e.pv_tracks],
             "track_z0": [t.z0() for t in e.pv_tracks],
             "track_chiSquared": [t.chiSquared() for t in e.pv_tracks],
             "track_PixelShared": [
-                trackSummaryValue(t, v_PixelShared) for t in e.pv_tracks
+                track_summary_value(t, v_PixelShared) for t in e.pv_tracks
             ],
-            "track_SCTShared": [trackSummaryValue(t, v_SCTShared) for t in e.pv_tracks],
+            "track_SCTShared": [
+                track_summary_value(t, v_SCTShared) for t in e.pv_tracks
+            ],
             "track_PixelHoles": [
-                trackSummaryValue(t, v_PixelHoles) for t in e.pv_tracks
+                track_summary_value(t, v_PixelHoles) for t in e.pv_tracks
             ],
-            "track_SCTHoles": [trackSummaryValue(t, v_SCTHoles) for t in e.pv_tracks],
-            "track_PixelHits": [trackSummaryValue(t, v_PixelHits) for t in e.pv_tracks],
-            "track_SCTHits": [trackSummaryValue(t, v_SCTHits) for t in e.pv_tracks],
+            "track_SCTHoles": [track_summary_value(t, v_SCTHoles) for t in e.pv_tracks],
+            "track_PixelHits": [
+                track_summary_value(t, v_PixelHits) for t in e.pv_tracks
+            ],
+            "track_SCTHits": [track_summary_value(t, v_SCTHits) for t in e.pv_tracks],
             #
             # Muon Segments. We will convert to eta and phi after we load these guys.
             #
@@ -190,6 +141,18 @@ def fetch_training_data(ds_name: str):
             "jet_pt": [j.pt() / 1000.0 for j in e.jets],
             "jet_eta": [j.eta() for j in e.jets],
             "jet_phi": [j.phi() for j in e.jets],
+            #
+            # Clusters
+            #   These are written out per-jet.
+            #
+            # "clus_eta": [[c.eta() for c in c_list] for c_list in e.clusters],
+            # "clus_phi": [[c.phi() for c in c_list] for c_list in e.clusters],
+            # TODO: Why is missing ::calM mean we can't load this!?
+            # "clus_pt": [[c.pt() for c in c_list] for c_list in e.clusters],
+            # "clus_l1hcal": [
+            #     [e_sample(c, CaloSampling.CaloSample.PreSamplerB) for c in c_list]
+            #     for c_list in e.clusters
+            # ],
         }
     )
 
