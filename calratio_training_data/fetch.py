@@ -27,6 +27,11 @@ def main(
         count=True,
         help="Increase verbosity level (use -v for INFO, -vv for DEBUG)",
     ),
+    ignore_cache: bool = typer.Option(
+        False,
+        "--ignore_cache",
+        help="Ignore cache and fetch fresh data",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -34,7 +39,7 @@ def main(
     set_logging(int(verbosity))
     from calratio_training_data.training_query import fetch_training_data_to_file
 
-    fetch_training_data_to_file(dataset)
+    fetch_training_data_to_file(dataset, ignore_cache=ignore_cache)
 
 
 def run_from_command():
