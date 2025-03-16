@@ -82,14 +82,14 @@ def cvt_to_calo_cluster_callback(
             "metadata_type": "add_cpp_function",
             "name": "cvt_to_calo_cluster",
             "code": [
-                "const xAOD::IParticle *rawObj = cluster->rawConstituent();\n",
-                "const xAOD::CaloCluster *cl = dynamic_cast<const xAOD::CaloCluster *>(rawObj);\n",
-                "const xAOD::CaloCluster_v1 &result(*cl);\n",
+                "auto rawObj = cluster->rawConstituent();\n",
+                "const xAOD::CaloCluster *r = dynamic_cast<const xAOD::CaloCluster*>(rawObj);\n",
+                "const xAOD::CaloCluster result(*r);\n",
             ],
             "result": "result",
             "include_files": [],
             "arguments": ["cluster"],
-            "return_type": "const xAOD::CaloCluster_v1 &",
+            "return_type": "xAOD::CaloCluster_v1",
         }
     )
     return new_s, a

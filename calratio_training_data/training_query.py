@@ -61,7 +61,7 @@ def build_preselection():
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
             clusters=[
-                [cvt_to_calo_cluster(cl) for cl in j.constituentLinks() if cl.isValid()]
+                [cvt_to_calo_cluster(cl) for cl in j.getConstituents()]
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
