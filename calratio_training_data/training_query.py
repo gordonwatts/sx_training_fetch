@@ -5,7 +5,6 @@ import awkward as ak
 import servicex as sx
 from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
-from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
@@ -146,14 +145,14 @@ def fetch_training_data(ds_name: str):
             # Clusters
             #   These are written out per-jet.
             #
-            "clus_eta": [[c.eta() for c in c_list] for c_list in e.clusters],
-            "clus_phi": [[c.phi() for c in c_list] for c_list in e.clusters],
+            # "clus_eta": [[c.eta() for c in c_list] for c_list in e.clusters],
+            # "clus_phi": [[c.phi() for c in c_list] for c_list in e.clusters],
             # TODO: Why is missing ::calM mean we can't load this!?
             # "clus_pt": [[c.pt() for c in c_list] for c_list in e.clusters],
-            "clus_l1hcal": [
-                [c.eSample(CaloSampling.CaloSample.PreSamplerB) for c in c_list]
-                for c_list in e.clusters
-            ],
+            # "clus_l1hcal": [
+            #     [e_sample(c, CaloSampling.CaloSample.PreSamplerB) for c in c_list]
+            #     for c_list in e.clusters
+            # ],
         }
     )
 
