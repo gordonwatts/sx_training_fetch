@@ -28,7 +28,7 @@ def track_summary_value_callback(
     new_s = s.MetaData(
         {
             "metadata_type": "add_cpp_function",
-            "name": "trackSummaryValue",
+            "name": "track_summary_value",
             "code": [
                 "uint8_t result;\n"
                 "xAOD::SummaryType st (static_cast<xAOD::SummaryType>(value_selector));\n"
