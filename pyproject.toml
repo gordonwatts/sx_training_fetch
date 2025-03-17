@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["black", "typer", "servicex-cli"]
-notebook = ["jupyterlab", "ipywidgets", "hist", "mplhep", "scipy"]
+notebook = ["jupyterlab", "ipywidgets", "hist", "mplhep", "scipy", "pandas"]
 
 [project.scripts]
 calratio_training_data = "calratio_training_data.fetch:run_from_command"
