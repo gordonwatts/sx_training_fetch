@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 
 import typer
 
@@ -10,12 +11,17 @@ def set_logging(verbosity: int):
     Args:
         verbosity (int): Verbosity level (0: WARNING, 1: INFO, 2: DEBUG).
     """
-    if verbosity == 0:
-        logging.basicConfig(level=logging.WARNING)
-    elif verbosity == 1:
-        logging.basicConfig(level=logging.INFO)
-    elif verbosity >= 2:
-        logging.basicConfig(level=logging.DEBUG)
+    level = (
+        logging.WARNING
+        if verbosity == 0
+        else logging.INFO if verbosity == 1 else logging.DEBUG
+    )
+    logging.basicConfig(level=level)
+
+    # This isn't normally set. However, some of our functions need to grab everything, so
+    # they may mess with the root logger's level. This keeps the "user" protected.
+    for h in logging.getLogger().handlers:
+        h.setLevel(level)
 
 
 def main(
@@ -27,6 +33,11 @@ def main(
         count=True,
         help="Increase verbosity level (use -v for INFO, -vv for DEBUG)",
     ),
+    ignore_cache: bool = typer.Option(
+        False,
+        "--ignore_cache",
+        help="Ignore cache and fetch fresh data",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -34,7 +45,7 @@ def main(
     set_logging(int(verbosity))
     from calratio_training_data.training_query import fetch_training_data_to_file
 
-    fetch_training_data_to_file(dataset)
+    fetch_training_data_to_file(dataset, ignore_cache=ignore_cache)
 
 
 def run_from_command():

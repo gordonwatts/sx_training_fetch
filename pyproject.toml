@@ -14,15 +14,15 @@ dependencies = [
     "uproot",
     "func_adl_xAOD",
     "func_adl==3.4.0b6",
-    # "git+https://github.com/gordonwatts/ServiceX-Local.git@feat/injection",
-    # "git+https://github.com/ssl-hep/ServiceX_frontend.git@feat/register-backend",
+    "ServiceX-Local",
+    "servicex",
     "func_adl_servicex_xaodr25",
     "servicex-cli",
     "servicex-analysis-utils",
 ]
 
 [project.optional-dependencies]
-dev = ["black", "typer"]
+dev = ["black", "typer", "servicex-cli"]
 notebook = ["jupyterlab", "ipywidgets", "hist", "mplhep", "scipy", "pandas"]
 
 [project.scripts]

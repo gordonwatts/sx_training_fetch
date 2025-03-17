@@ -2,8 +2,8 @@ import logging
 from dataclasses import dataclass
 
 import awkward as ak
-import servicex as sx
 from func_adl import ObjectStream
+import servicex_local as sx_local
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
@@ -75,7 +75,7 @@ def build_preselection():
     return query_preselection
 
 
-def fetch_training_data(ds_name: str):
+def fetch_training_data(ds_name: str, ignore_cache: bool):
     """
     Fetch the specified dataset.
 
@@ -156,23 +156,24 @@ def fetch_training_data(ds_name: str):
         }
     )
 
-    return run_query(ds_name, query)
+    return run_query(ds_name, query, ignore_cache)
 
 
-def fetch_training_data_to_file(ds_name: str):
-    result_list = fetch_training_data(ds_name)
+def fetch_training_data_to_file(ds_name: str, ignore_cache: bool):
+    result_list = fetch_training_data(ds_name, ignore_cache)
 
     # Finally, write it out into a training file.
     ak.to_parquet(result_list, "training.parquet")
 
 
-def run_query(ds_name: str, query: ObjectStream):
+def run_query(ds_name: str, query: ObjectStream, ignore_cache: bool):
     # Build the ServiceX spec and run it.
-    spec, backend_name = build_sx_spec(query, ds_name)
+    spec, backend_name, adaptor = build_sx_spec(query, ds_name)
     result_list = to_awk(
-        sx.deliver(
-            spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
-        )
+        # sx.deliver(
+        #     spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
+        # )
+        sx_local.deliver(spec, adaptor=adaptor, ignore_local_cache=ignore_cache)
     )["MySample"]
 
     logging.info(f"Received {len(result_list)} entries.")

@@ -15,7 +15,7 @@ class SXLocationOptions(Enum):
     anyLocation = "anyLocation"
 
 
-def build_sx_spec(query, ds_name: str) -> Tuple[ServiceXSpec, str]:
+def build_sx_spec(query, ds_name: str):
     """Build a ServiceX spec from the given query and dataset."""
 
     # Convert our dataset argument
@@ -23,11 +23,12 @@ def build_sx_spec(query, ds_name: str) -> Tuple[ServiceXSpec, str]:
 
     # Determine the backend and codegen we will use, defaulting to
     # running remotely if possible.
+    adaptor = None
     if location_options != SXLocationOptions.mustUseLocal:
         backend_name = "af.uchicago"
         codegen_name = "atlasr22"
     else:
-        codegen_name, backend_name = install_sx_local()
+        codegen_name, backend_name, adaptor = install_sx_local()
 
     # Build the ServiceX spec
     spec = ServiceXSpec(
@@ -41,7 +42,7 @@ def build_sx_spec(query, ds_name: str) -> Tuple[ServiceXSpec, str]:
         ],
     )
 
-    return spec, backend_name
+    return spec, backend_name, adaptor
 
 
 def find_dataset(
@@ -73,7 +74,7 @@ def find_dataset(
             return dataset.Rucio(ds_name), SXLocationOptions.mustUseRemote
 
 
-def install_sx_local() -> tuple[str, str]:
+def install_sx_local():
     """
     Set up and register a local ServiceX endpoint for data transformation.
 
@@ -84,12 +85,9 @@ def install_sx_local() -> tuple[str, str]:
     Returns:
         tuple: A tuple containing the names of the codegen and backend.
     """
-    from servicex.configuration import Configuration, Endpoint
     from servicex_local import DockerScienceImage, LocalXAODCodegen, SXLocalAdaptor
-    from servicex_local.adaptor import MinioLocalAdaptor
 
     codegen_name = "atlasr22-local"
-    backend_name = "local-backend"
 
     codegen = LocalXAODCodegen()
     # science_runner = WSL2ScienceImage("atlas_al9", "25.2.12")
@@ -100,16 +98,6 @@ def install_sx_local() -> tuple[str, str]:
         codegen, science_runner, codegen_name, "http://localhost:5001"
     )
 
-    Configuration.register_endpoint(
-        Endpoint(
-            name=backend_name,
-            adapter=adaptor,
-            minio=MinioLocalAdaptor.for_transform,  # type: ignore
-            endpoint="bogus-endpoint-name",
-        )
-    )
+    logging.info(f"Using local ServiceX endpoint: codegen {codegen_name}")
 
-    logging.info(
-        f"Using local ServiceX endpoint: {backend_name} with codegen {codegen_name}"
-    )
-    return codegen_name, backend_name
+    return codegen_name, "local-backend", adaptor
