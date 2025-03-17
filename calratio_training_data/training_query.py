@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass
 
 import awkward as ak
-import servicex as sx
 from func_adl import ObjectStream
 import servicex_local as sx_local
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
