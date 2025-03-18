@@ -41,6 +41,9 @@ class TopLevelEvent:
     jets: FADLStream[Jet_v1]
     clusters: FADLStream[FADLStream[CaloCluster_v1]]
 
+    # All tracks with no selection at all. From Inner Detector container
+    all_tracks: FADLStream[TrackParticle_v1]
+
 
 def build_preselection():
     # Start the query
@@ -72,6 +75,7 @@ def build_preselection():
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
+            all_tracks=e.TrackParticles("InDetTrackParticles"),
         )
     )
 
