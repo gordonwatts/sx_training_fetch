@@ -177,7 +177,11 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     ak.to_parquet(result_list, "training.parquet")
 
 
-def run_query(ds_name: str, query: ObjectStream, config: RunConfig):
+def run_query(
+    ds_name: str,
+    query: ObjectStream,
+    config: RunConfig = RunConfig(ignore_cache=False, run_locally=False),
+):
     # Build the ServiceX spec and run it.
     spec, backend_name, adaptor = build_sx_spec(query, ds_name, config.run_locally)
     if config.run_locally or backend_name == "local-backend":
