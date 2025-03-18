@@ -17,20 +17,27 @@ class SXLocationOptions(Enum):
     anyLocation = "anyLocation"
 
 
-def build_sx_spec(query, ds_name: str):
+def build_sx_spec(query, ds_name: str, prefer_local: bool = False):
     """Build a ServiceX spec from the given query and dataset."""
 
-    # Convert our dataset argument
-    dataset, location_options = find_dataset(ds_name)
+    # Pass our local preference to find_dataset.
+    dataset, location_options = find_dataset(ds_name, prefer_local=prefer_local)
 
-    # Determine the backend and codegen we will use, defaulting to
-    # running remotely if possible.
-    adaptor = None
-    if location_options != SXLocationOptions.mustUseLocal:
-        backend_name = "af.uchicago"
-        codegen_name = "atlasr22"
+    # Determine whether to use the local endpoint.
+    if location_options == SXLocationOptions.mustUseRemote:
+        use_local = False
+    elif prefer_local or location_options == SXLocationOptions.mustUseLocal:
+        use_local = True
     else:
+        use_local = False
+
+    adaptor = None
+    # Second branch: decide on the backend.
+    if use_local:
         codegen_name, backend_name, adaptor = install_sx_local()
+    else:
+        backend_name = "af.uchicago"
+        codegen_name = "atlasr25"
 
     # Build the ServiceX spec
     spec = ServiceXSpec(

@@ -190,3 +190,18 @@ def test_build_sx_spec_either(mocker):
     spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
 
     assert backend_name == "af.uchicago"
+
+
+def test_build_sx_spec_prefer_local(mocker):
+    "Force local backend using prefer_local even when find_dataset returns remote option."
+    mocker.patch(
+        "calratio_training_data.sx_utils.find_dataset",
+        return_value=(
+            # Even if we mock a remote FileList, prefer_local should force local.
+            dataset.FileList(files=["dummy_file.root"]),
+            SXLocationOptions.anyLocation,
+        ),
+    )
+    spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds", prefer_local=True)
+
+    assert backend_name == "local-backend"
