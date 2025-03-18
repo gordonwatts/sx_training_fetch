@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import awkward as ak
 from func_adl import ObjectStream
+from servicex import deliver
 import servicex_local as sx_local
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.xaod import xAOD
@@ -169,12 +170,14 @@ def fetch_training_data_to_file(ds_name: str, ignore_cache: bool):
 def run_query(ds_name: str, query: ObjectStream, ignore_cache: bool):
     # Build the ServiceX spec and run it.
     spec, backend_name, adaptor = build_sx_spec(query, ds_name)
-    result_list = to_awk(
-        # sx.deliver(
-        #     spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
-        # )
-        sx_local.deliver(spec, adaptor=adaptor, ignore_local_cache=ignore_cache)
-    )["MySample"]
+
+    sx_result = (
+        deliver(spec, servicex_name=backend_name, ignore_local_cache=ignore_cache)
+        if backend_name != "local-backend"
+        else sx_local.deliver(spec, adaptor=adaptor, ignore_local_cache=ignore_cache)
+    )
+
+    result_list = to_awk(sx_result)["MySample"]
 
     logging.info(f"Received {len(result_list)} entries.")
 
