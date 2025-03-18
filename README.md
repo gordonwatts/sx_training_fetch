@@ -15,7 +15,19 @@ What you'll need on your system:
 
 ```text
 > calratio_training_data --help
+ Usage: calratio_training_data [OPTIONS] DATASET                                                                                                                          
 
+ Fetch training data for cal ratio.
+ 
+╭─ Arguments ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ *    dataset      TEXT  The data source [default: None] [required]                                                                                                     │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --verbose       -v      TEXT  Increase verbosity level (use -v for INFO, -vv for DEBUG) [default: 0]                                                                   │
+│ --ignore_cache                Ignore cache and fetch fresh data                                                                                                        │
+│ --local                       Run ServiceX locally, fail if not possible (requires docker)                                                                             │
+│ --help                        Show this message and exit.                                                                                                              │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 Some notes
