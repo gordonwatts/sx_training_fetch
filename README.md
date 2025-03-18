@@ -26,4 +26,5 @@ The data can be in a number of locations
 
 1. **Local File** You can either specify the path, or use the standard `file` url: `file:///tmp/mydata.root`. If you just specify the path, the file must exist or the system might guess you are trying to do another file source.
 1. **URL** THe file should be accessible by anyone anywhere (e.g. public). The dataset can be processed locally or remotely in this case (see the `--local` option).
-    a. If the URL is a CERNBox URL, it can be converted to a `xrootd` address and accessed more efficiently that way - if you are running on a remote `servicex` instance.
+    a. If the URL is a CERNBox URL, it can be converted to a `xrootd` address and accessed more efficiently that way - if you are running on a remote `servicex` instance. To correctly use a cernbox url, go to the file in CERNBOX, click on the details option from the drop down, and select the 'Direct Link' option.
+  
