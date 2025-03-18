@@ -83,7 +83,9 @@ def build_preselection():
     return query_preselection
 
 
-def fetch_training_data(ds_name: str, config: RunConfig):
+def fetch_training_data(
+    ds_name: str, config: RunConfig = RunConfig(ignore_cache=False, run_locally=False)
+):
     """
     Fetch the specified dataset.
 
