@@ -101,13 +101,16 @@ def find_dataset(
         what_is_it = "rucio"
         did = ds_name[8:]
     else:
-        # Now we need to use heuristics to decide what this is.
-
-        if os.path.sep in ds_name:
-            # If this looks like a file name, then we should throw.
-            file = Path(ds_name).absolute()
+        # Now we need to use heuristics to decide what this is. If you are running
+        # on a file that does not exist you'll get a DID error here. Ugh.
+        file = Path(ds_name).absolute()
+        if file.exists():
             what_is_it = "file"
         else:
+            if os.path.sep in ds_name:
+                raise ValueError(
+                    f"{ds_name} looks like a file path, but the file does not exist"
+                )
             did = ds_name
             what_is_it = "rucio"
 

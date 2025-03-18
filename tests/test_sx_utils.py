@@ -22,6 +22,37 @@ def test_find_dataset_file(tmp_path: Path):
     assert ds.files[0] == str(input_datafile)
 
 
+def test_find_dataset_file_relative(tmp_path: Path):
+    "Use a direct relative path in the file name and make sure it works"
+    input_datafile = tmp_path / "my_data.root"
+    input_datafile.touch()
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.chdir(subdir)
+
+        ds, location_opt = find_dataset("../my_data.root")
+        assert location_opt == SXLocationOptions.mustUseLocal
+        assert isinstance(ds, dataset.FileList)
+        assert len(ds.files) == 1
+        assert str(Path(ds.files[0]).resolve()) == str(input_datafile)
+
+
+def test_find_dataset_file_relative_no_clues(tmp_path: Path):
+    "Use a direct relative path in the file name and make sure it works"
+    input_datafile = tmp_path / "my_data.root"
+    input_datafile.touch()
+    with pytest.MonkeyPatch.context() as mp:
+        mp.chdir(tmp_path)
+
+        ds, location_opt = find_dataset("my_data.root")
+        assert location_opt == SXLocationOptions.mustUseLocal
+        assert isinstance(ds, dataset.FileList)
+        assert len(ds.files) == 1
+        assert ds.files[0] == str(input_datafile)
+
+
 def test_find_dataset_file_with_scheme(tmp_path: Path):
     "Make sure a local file comes back as a file"
     input_datafile = tmp_path / "myfile.root"
