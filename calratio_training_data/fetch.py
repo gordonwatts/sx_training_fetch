@@ -41,7 +41,7 @@ def main(
     local: bool = typer.Option(
         False,
         "--local",
-        help="Attempt to run the ServiceX thing locally",
+        help="Run ServiceX locally, fail if not possible (requires docker)",
     ),
 ):
     """
