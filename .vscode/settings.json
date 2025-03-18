@@ -6,6 +6,7 @@
     "calosampling",
     "calratio",
     "celerybeat",
+    "cernbox",
     "clus",
     "codegen",
     "Connor",
@@ -18,10 +19,12 @@
     "eventinfo",
     "EXOT",
     "FADL",
+    "gwatts",
     "hcal",
     "htmlcov",
     "ipython",
     "Localx",
+    "lthigh",
     "mkdocs",
     "muonsegment",
     "mypy",
@@ -53,7 +56,8 @@
     "venv",
     "vxtype",
     "webassets",
-    "xaodr"
+    "xaodr",
+    "xrootd"
   ],
   "jupyter.debugJustMyCode": false
 }
