@@ -113,6 +113,19 @@ def test_find_dataset_cernbox():
     )
 
 
+def test_find_dataset_cernbox_quick_link():
+    "A url, but pointing at cernbox"
+
+    http_location = "https://cernbox.cern.ch/s/NMsiw60J6FCpY8M"
+
+    ds, location_opt = find_dataset(http_location, prefer_local=False)
+
+    assert location_opt == SXLocationOptions.anyLocation
+    assert isinstance(ds, dataset.FileList)
+    assert len(ds.files) == 1
+    assert ds.files[0] == "https://cernbox.cern.ch/s/NMsiw60J6FCpY8M"
+
+
 def test_find_dataset_cernbox_local():
     "A url, but not pointing to anything special"
 
