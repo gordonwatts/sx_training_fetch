@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import awkward as ak
 from func_adl import ObjectStream
+from servicex import deliver
 import servicex_local as sx_local
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.xaod import xAOD
@@ -17,6 +18,13 @@ from servicex_analysis_utils import to_awk
 
 from .sx_utils import build_sx_spec
 from .cpp_xaod_utils import track_summary_value, cvt_to_calo_cluster
+
+
+# New data class for run configuration options
+@dataclass
+class RunConfig:
+    ignore_cache: bool
+    run_locally: bool
 
 
 @dataclass
@@ -75,12 +83,13 @@ def build_preselection():
     return query_preselection
 
 
-def fetch_training_data(ds_name: str, ignore_cache: bool):
+def fetch_training_data(ds_name: str, config: RunConfig):
     """
     Fetch the specified dataset.
 
     Args:
-        ds_name (str): The name or identifier of the dataset to fetch.
+        ds_name (str): The dataset identifier.
+        config (RunConfig): Run configuration options.
     """
     # Get the base query
     query_preselection = build_preselection()
@@ -156,26 +165,29 @@ def fetch_training_data(ds_name: str, ignore_cache: bool):
         }
     )
 
-    return run_query(ds_name, query, ignore_cache)
+    return run_query(ds_name, query, config)
 
 
-def fetch_training_data_to_file(ds_name: str, ignore_cache: bool):
-    result_list = fetch_training_data(ds_name, ignore_cache)
+def fetch_training_data_to_file(ds_name: str, config: RunConfig):
+    result_list = fetch_training_data(ds_name, config)
 
     # Finally, write it out into a training file.
     ak.to_parquet(result_list, "training.parquet")
 
 
-def run_query(ds_name: str, query: ObjectStream, ignore_cache: bool):
+def run_query(ds_name: str, query: ObjectStream, config: RunConfig):
     # Build the ServiceX spec and run it.
-    spec, backend_name, adaptor = build_sx_spec(query, ds_name)
-    result_list = to_awk(
-        # sx.deliver(
-        #     spec, servicex_name=backend_name, progress_bar=sx.ProgressBarFormat.none
-        # )
-        sx_local.deliver(spec, adaptor=adaptor, ignore_local_cache=ignore_cache)
-    )["MySample"]
-
+    spec, backend_name, adaptor = build_sx_spec(query, ds_name, config.run_locally)
+    if config.run_locally or backend_name == "local-backend":
+        sx_result = sx_local.deliver(
+            spec, adaptor=adaptor, ignore_local_cache=config.ignore_cache
+        )
+    else:
+        if config.run_locally:
+            raise ValueError(f"Unable to run dataset {ds_name} locally.")
+        sx_result = deliver(
+            spec, servicex_name=backend_name, ignore_local_cache=config.ignore_cache
+        )
+    result_list = to_awk(sx_result)["MySample"]
     logging.info(f"Received {len(result_list)} entries.")
-
     return result_list

@@ -1,8 +1,10 @@
 import logging
+import os
 import re
 from enum import Enum
 from pathlib import Path
 from typing import Tuple
+from urllib.parse import unquote, urlparse
 
 from servicex import Sample, ServiceXSpec, dataset
 
@@ -15,20 +17,27 @@ class SXLocationOptions(Enum):
     anyLocation = "anyLocation"
 
 
-def build_sx_spec(query, ds_name: str):
+def build_sx_spec(query, ds_name: str, prefer_local: bool = False):
     """Build a ServiceX spec from the given query and dataset."""
 
-    # Convert our dataset argument
-    dataset, location_options = find_dataset(ds_name)
+    # Pass our local preference to find_dataset.
+    dataset, location_options = find_dataset(ds_name, prefer_local=prefer_local)
 
-    # Determine the backend and codegen we will use, defaulting to
-    # running remotely if possible.
-    adaptor = None
-    if location_options != SXLocationOptions.mustUseLocal:
-        backend_name = "af.uchicago"
-        codegen_name = "atlasr22"
+    # Determine whether to use the local endpoint.
+    if location_options == SXLocationOptions.mustUseRemote:
+        use_local = False
+    elif prefer_local or location_options == SXLocationOptions.mustUseLocal:
+        use_local = True
     else:
+        use_local = False
+
+    adaptor = None
+    # Second branch: decide on the backend.
+    if use_local:
         codegen_name, backend_name, adaptor = install_sx_local()
+    else:
+        backend_name = "af.uchicago"
+        codegen_name = "atlasr25"
 
     # Build the ServiceX spec
     spec = ServiceXSpec(
@@ -46,32 +55,81 @@ def build_sx_spec(query, ds_name: str):
 
 
 def find_dataset(
-    ds_name: str,
-) -> Tuple[dataset.FileList | dataset.Rucio, SXLocationOptions]:
+    ds_name: str, prefer_local: bool = False
+) -> Tuple[dataset.FileList | dataset.Rucio | dataset.XRootD, SXLocationOptions]:
     """Use heuristics to determine what it is we are after here.
     This function will return a dataset object that can be used to fetch the data.
     It will try to figure out if the input is a URL, a local file, or a Rucio dataset.
 
     Args:
         ds_name (str): The name of the dataset to be fetched.
+        prefer_local (boo): If we can construct the url in a way that will let us
+            run locally, then do it. The returned location options must still
+            be checked, however. And even if this can't run locally (e.g. rucio
+            dataset), no error will be produced.
 
     Returns:
         _type_: The dataset for ServiceX to use.
     """
+    # first, determine what we are looking at.
+    what_is_it = None
     if re.match(r"^https?://", ds_name):
-        # If ds_name is an HTTP URL
-        logging.debug(f"Interpreting dataset as URL: {ds_name}")
-        return dataset.FileList([ds_name]), SXLocationOptions.anyLocation
+        what_is_it = "url"
+        url = ds_name
+
+        # Check for the special case of cernbox - which we might be able to convert to
+        # a xrootd path.
+        if not prefer_local:
+            parsed_url = urlparse(url)
+            if "cernbox.cern.ch" in parsed_url.netloc and parsed_url.path.startswith(
+                "/files/spaces"
+            ):
+                remote_file = f"root://eospublic.cern.ch{parsed_url.path[13:]}"
+                what_is_it = "remote_file"
+
+    elif re.match(r"^file://", ds_name):
+        # Convert file URI to a path in a cross-platform way
+
+        parsed_uri = urlparse(ds_name)
+        file_path = unquote(parsed_uri.path)
+        if os.name == "nt" and file_path.startswith("/"):
+            file_path = file_path[1:]
+
+        file = Path(file_path).absolute()
+        what_is_it = "file"
+    elif re.match(r"^rucio://", ds_name):
+        what_is_it = "rucio"
+        did = ds_name[8:]
     else:
-        file = Path(ds_name).absolute()
+        # Now we need to use heuristics to decide what this is.
+
+        if os.path.sep in ds_name:
+            # If this looks like a file name, then we should throw.
+            file = Path(ds_name).absolute()
+            what_is_it = "file"
+        else:
+            did = ds_name
+            what_is_it = "rucio"
+
+    if what_is_it == "url":
+        logging.debug(f"Interpreting {ds_name} as a url")
+        return dataset.FileList([url]), SXLocationOptions.anyLocation
+    elif what_is_it == "file":
+        logging.debug(f"Interpreting {ds_name} as a local file ({file})")
         if file.exists():
             # If ds_name is a local file
             logging.debug(f"Interpreting dataset as local file: {file}")
             return dataset.FileList([str(file)]), SXLocationOptions.mustUseLocal
         else:
-            # Otherwise, assume ds_name is a Rucio dataset
-            logging.debug(f"Interpreting dataset as Rucio dataset: {ds_name}")
-            return dataset.Rucio(ds_name), SXLocationOptions.mustUseRemote
+            raise ValueError(f"This local file {file} does not exist.")
+    elif what_is_it == "remote_file":
+        logging.debug(f"Interpreting {ds_name} as a remote file ({remote_file})")
+        return dataset.FileList([remote_file]), SXLocationOptions.mustUseRemote
+    elif what_is_it == "rucio":
+        logging.debug(f"Interpreting {ds_name} as a rucio dataset ({did})")
+        return dataset.Rucio(did), SXLocationOptions.mustUseRemote
+    else:
+        raise RuntimeError(f"Unknown type of input {what_is_it}")
 
 
 def install_sx_local():

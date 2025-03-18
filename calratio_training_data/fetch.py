@@ -38,14 +38,23 @@ def main(
         "--ignore_cache",
         help="Ignore cache and fetch fresh data",
     ),
+    local: bool = typer.Option(
+        False,
+        "--local",
+        help="Run ServiceX locally, fail if not possible (requires docker)",
+    ),
 ):
     """
     Fetch training data for cal ratio.
     """
     set_logging(int(verbosity))
-    from calratio_training_data.training_query import fetch_training_data_to_file
+    from calratio_training_data.training_query import (
+        fetch_training_data_to_file,
+        RunConfig,
+    )
 
-    fetch_training_data_to_file(dataset, ignore_cache=ignore_cache)
+    run_config = RunConfig(ignore_cache=ignore_cache, run_locally=local)
+    fetch_training_data_to_file(dataset, run_config)
 
 
 def run_from_command():
