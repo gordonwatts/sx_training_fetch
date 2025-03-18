@@ -1,7 +1,11 @@
 from pathlib import Path
 
 import pytest
-from calratio_training_data.sx_utils import find_dataset, SXLocationOptions
+from calratio_training_data.sx_utils import (
+    find_dataset,
+    SXLocationOptions,
+    build_sx_spec,
+)
 from servicex import dataset
 
 
@@ -131,3 +135,45 @@ def test_find_dataset_cernbox_local():
         "DAOD_EXOT15.e7357_e5984_s3234_r10201_r10210_p4696/DAOD_EXOT15.26710706._000001"
         ".pool.root.1"
     )
+
+
+def test_build_sx_spec_local(mocker):
+    "Make sure backend returns as local reference"
+    mocker.patch(
+        "calratio_training_data.sx_utils.find_dataset",
+        return_value=(
+            dataset.FileList(files=["dummy_file.root"]),
+            SXLocationOptions.mustUseLocal,
+        ),
+    )
+    spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
+
+    assert backend_name == "local-backend"
+
+
+def test_build_sx_spec_remote_only(mocker):
+    "Make sure backend returns as remote reference"
+    mocker.patch(
+        "calratio_training_data.sx_utils.find_dataset",
+        return_value=(
+            dataset.FileList(files=["dummy_file.root"]),
+            SXLocationOptions.mustUseRemote,
+        ),
+    )
+    spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
+
+    assert backend_name == "af.uchicago"
+
+
+def test_build_sx_spec_either(mocker):
+    "Make sure backend returns as either - so go remote"
+    mocker.patch(
+        "calratio_training_data.sx_utils.find_dataset",
+        return_value=(
+            dataset.FileList(files=["dummy_file.root"]),
+            SXLocationOptions.anyLocation,
+        ),
+    )
+    spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
+
+    assert backend_name == "af.uchicago"
