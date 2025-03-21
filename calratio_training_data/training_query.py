@@ -118,10 +118,7 @@ def fetch_training_data(
             "track_pT": [t.pt() / 1000.0 for t in e.pv_tracks],
             "track_eta": [t.eta() for t in e.pv_tracks],
             "track_phi": [t.phi() for t in e.pv_tracks],
-            # TODO: If we are limiting tracks to the PV, is there any point in this
-            # input variable?
-            # See bug func_adl/issues/181
-            # "track_vertex_nParticles": [len(e.pv_tracks) for t in e.pv_tracks],  # type: ignore
+            "track_vertex_nParticles": [len(e.pv_tracks) for t in e.pv_tracks],  # type: ignore
             "track_d0": [t.d0() for t in e.pv_tracks],
             "track_z0": [t.z0() for t in e.pv_tracks],
             "track_chiSquared": [t.chiSquared() for t in e.pv_tracks],
