@@ -8,6 +8,9 @@ from func_adl_servicex_xaodr25.elementlink_datavector_xaod_iparticle__ import (
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 
+from func_adl_servicex_xaodr25.xaod import xAOD, add_enum_info
+
+
 T = TypeVar("T")
 
 
@@ -42,11 +45,12 @@ def track_summary_value_callback(
             "return_type": "float",
         }
     )
+    new_s = add_enum_info(new_s, "SummaryType")
     return new_s, a
 
 
 @func_adl_callable(track_summary_value_callback)
-def track_summary_value(trk: TrackParticle_v1, value_selector: int) -> int:
+def track_summary_value(trk: TrackParticle_v1, value_selector: xAOD.SummaryType) -> int:
     """Call the `trackSummary` method on a track.
 
     * Return the value of the value_selector for the track
@@ -92,6 +96,7 @@ def cvt_to_calo_cluster_callback(
             "return_type": "xAOD::CaloCluster_v1",
         }
     )
+
     return new_s, a
 
 
@@ -107,53 +112,5 @@ def cvt_to_calo_cluster(
 
     Returns:
         CaloCluster_v1: The converted CaloCluster_v1 object.
-    """
-    ...
-
-
-def e_sample_callback(
-    s: ObjectStream[T], a: ast.Call
-) -> Tuple[ObjectStream[T], ast.Call]:
-    """Because `func_adl` is doing a little too much, do the conversion needed.
-    Args:
-        s (ObjectStream[T]): The stream we are operating against
-        a (ast.Call): The actual call
-
-    Returns:
-        Tuple[ObjectStream[T], ast.Call]: Return the updated stream with the metadata code.
-    """
-    new_s = s.MetaData(
-        {
-            "metadata_type": "add_cpp_function",
-            "name": "e_sample",
-            "code": [
-                "xAOD::CaloCluster_v1::CaloSample st "
-                "(static_cast<xAOD::CaloCluster_v1::CaloSample>(value_selector));\n"
-                "double result = clus.eSample(st);\n"
-            ],
-            "result": "result",
-            "include_files": ["xAODCaloEvent/versions/CaloCluster_v1.h"],
-            "arguments": ["clus", "value_selector"],
-            "return_type": "double",
-        }
-    )
-    return new_s, a
-
-
-@func_adl_callable(e_sample_callback)
-def e_sample(clus: CaloCluster_v1, value_selector: int) -> float:
-    """Call the `eSummary` method on a CaloCluster
-
-    * Converts the enum integer into a C++ enum and makes the call.
-
-    Args:
-        clus (CaloCluster_v1): The cluster
-        value_selector (int): Which value
-
-    NOTE: This is a dummy function that injects C++ into the object stream to do the
-    actual work.
-
-    Returns:
-        int: Value requested.
     """
     ...
