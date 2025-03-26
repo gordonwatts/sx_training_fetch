@@ -5,7 +5,8 @@ import awkward as ak
 import servicex_local as sx_local
 from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
-from func_adl_servicex_xaodr25.calosampling import CaloSampling
+
+# from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
@@ -100,13 +101,6 @@ def fetch_training_data(
     # Get the base query
     query_preselection = build_preselection()
 
-    v_PixelShared = xAOD.SummaryType.numberOfPixelSharedHits.value
-    v_SCTShared = xAOD.SummaryType.numberOfSCTSharedHits.value
-    v_SCTHoles = xAOD.SummaryType.numberOfSCTHoles.value
-    v_PixelHits = xAOD.SummaryType.numberOfPixelHits.value
-    v_PixelHoles = xAOD.SummaryType.numberOfPixelHoles.value
-    v_SCTHits = xAOD.SummaryType.numberOfSCTHits.value
-
     # Query the run number, etc.
     query = query_preselection.Select(
         lambda e: {
@@ -123,19 +117,29 @@ def fetch_training_data(
             "track_z0": [t.z0() for t in e.pv_tracks],
             "track_chiSquared": [t.chiSquared() for t in e.pv_tracks],
             "track_PixelShared": [
-                track_summary_value(t, v_PixelShared) for t in e.pv_tracks
+                track_summary_value(t, xAOD.SummaryType.numberOfPixelSharedHits)
+                for t in e.pv_tracks
             ],
             "track_SCTShared": [
-                track_summary_value(t, v_SCTShared) for t in e.pv_tracks
+                track_summary_value(t, xAOD.SummaryType.numberOfSCTSharedHits)
+                for t in e.pv_tracks
             ],
             "track_PixelHoles": [
-                track_summary_value(t, v_PixelHoles) for t in e.pv_tracks
+                track_summary_value(t, xAOD.SummaryType.numberOfPixelHoles)
+                for t in e.pv_tracks
             ],
-            "track_SCTHoles": [track_summary_value(t, v_SCTHoles) for t in e.pv_tracks],
+            "track_SCTHoles": [
+                track_summary_value(t, xAOD.SummaryType.numberOfSCTHoles)
+                for t in e.pv_tracks
+            ],
             "track_PixelHits": [
-                track_summary_value(t, v_PixelHits) for t in e.pv_tracks
+                track_summary_value(t, xAOD.SummaryType.numberOfPixelHits)
+                for t in e.pv_tracks
             ],
-            "track_SCTHits": [track_summary_value(t, v_SCTHits) for t in e.pv_tracks],
+            "track_SCTHits": [
+                track_summary_value(t, xAOD.SummaryType.numberOfSCTHits)
+                for t in e.pv_tracks
+            ],
             #
             # Muon Segments. We will convert to eta and phi after we load these guys.
             #

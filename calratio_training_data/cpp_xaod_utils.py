@@ -8,7 +8,7 @@ from func_adl_servicex_xaodr25.elementlink_datavector_xaod_iparticle__ import (
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 
-# from func_adl_servicex_xaodr25.xaod import xAOD
+from func_adl_servicex_xaodr25.xaod import xAOD, add_enum_info
 
 
 T = TypeVar("T")
@@ -45,11 +45,12 @@ def track_summary_value_callback(
             "return_type": "float",
         }
     )
+    new_s = add_enum_info(new_s, "SummaryType")
     return new_s, a
 
 
 @func_adl_callable(track_summary_value_callback)
-def track_summary_value(trk: TrackParticle_v1, value_selector: int) -> int:
+def track_summary_value(trk: TrackParticle_v1, value_selector: xAOD.SummaryType) -> int:
     """Call the `trackSummary` method on a track.
 
     * Return the value of the value_selector for the track
@@ -95,6 +96,7 @@ def cvt_to_calo_cluster_callback(
             "return_type": "xAOD::CaloCluster_v1",
         }
     )
+
     return new_s, a
 
 
