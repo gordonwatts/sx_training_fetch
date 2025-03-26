@@ -2,10 +2,10 @@ import logging
 from dataclasses import dataclass
 
 import awkward as ak
-from func_adl import ObjectStream
-from servicex import deliver
 import servicex_local as sx_local
+from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
+from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
@@ -14,10 +14,11 @@ from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
+from servicex import deliver
 from servicex_analysis_utils import to_awk
 
+from .cpp_xaod_utils import cvt_to_calo_cluster, track_summary_value
 from .sx_utils import build_sx_spec
-from .cpp_xaod_utils import track_summary_value, cvt_to_calo_cluster
 
 
 # New data class for run configuration options
@@ -161,7 +162,7 @@ def fetch_training_data(
             # TODO: Why is missing ::calM mean we can't load this!?
             # "clus_pt": [[c.pt() for c in c_list] for c_list in e.clusters],
             # "clus_l1hcal": [
-            #     [e_sample(c, CaloSampling.CaloSample.PreSamplerB) for c in c_list]
+            #     [c.eSample(CaloSampling.CaloSample.PreSamplerB) for c in c_list]
             #     for c_list in e.clusters
             # ],
         }
