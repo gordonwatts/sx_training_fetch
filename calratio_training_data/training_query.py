@@ -50,16 +50,15 @@ def build_preselection():
     query_base = FuncADLQueryPHYS()
 
     # Establish all the various types of objects we need.
-    pv_type = VxType.VertexType.PriVtx.value
     query_base_objects = query_base.Select(
         lambda e: TopLevelEvent(
             event_info=e.EventInfo("EventInfo"),
             vertices=e.Vertices("PrimaryVertices").Where(
-                lambda v: v.vertexType() == pv_type
+                lambda v: v.vertexType() == VxType.VertexType.PriVtx
             ),
             pv_tracks=(
                 e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == pv_type)
+                .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
                 .First()
                 .trackParticleLinks()
                 .Where(lambda t: t.isValid())  # type: ignore

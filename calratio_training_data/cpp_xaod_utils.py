@@ -8,6 +8,9 @@ from func_adl_servicex_xaodr25.elementlink_datavector_xaod_iparticle__ import (
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 
+# from func_adl_servicex_xaodr25.xaod import xAOD
+
+
 T = TypeVar("T")
 
 
