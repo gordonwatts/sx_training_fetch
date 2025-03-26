@@ -6,7 +6,7 @@ import servicex_local as sx_local
 from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 
-# from func_adl_servicex_xaodr25.calosampling import CaloSampling
+from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
@@ -42,6 +42,7 @@ class TopLevelEvent:
     muon_segments: FADLStream[MuonSegment_v1]
     jets: FADLStream[Jet_v1]
     clusters: FADLStream[FADLStream[CaloCluster_v1]]
+    topo_clusters: FADLStream[CaloCluster_v1]
 
     # All tracks with no selection at all. From Inner Detector container
     all_tracks: FADLStream[TrackParticle_v1]
@@ -77,6 +78,7 @@ def build_preselection():
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
             all_tracks=e.TrackParticles("InDetTrackParticles"),
+            topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
         )
     )
 
@@ -159,16 +161,62 @@ def fetch_training_data(
             "jet_phi": [j.phi() for j in e.jets],
             #
             # Clusters
-            #   These are written out per-jet.
+            #   Write out all clusters
+            #   Layer definitions come from https://gitlab.cern.ch/atlas-phys-exotics-llp-mscrid
+            #       /fullrun2analysis/DiVertAnalysisR21/-/blob/master/DiVertAnalysis/Root
+            #       /RegionVarCalculator_calRatio.cxx?ref_type=heads#L381
             #
-            # "clus_eta": [[c.eta() for c in c_list] for c_list in e.clusters],
-            # "clus_phi": [[c.phi() for c in c_list] for c_list in e.clusters],
-            # TODO: Why is missing ::calM mean we can't load this!?
-            # "clus_pt": [[c.pt() for c in c_list] for c_list in e.clusters],
-            # "clus_l1hcal": [
-            #     [c.eSample(CaloSampling.CaloSample.PreSamplerB) for c in c_list]
-            #     for c_list in e.clusters
-            # ],
+            "clus_eta": [c.eta() for c in e.topo_clusters],
+            "clus_phi": [c.phi() for c in e.topo_clusters],
+            "clus_pt": [c.pt() / 1000.0 for c in e.topo_clusters],
+            "clus_l1hcal": [
+                c.eSample(CaloSampling.CaloSample.HEC0) for c in e.topo_clusters
+            ],
+            "clus_l2hcal": [
+                c.eSample(CaloSampling.CaloSample.HEC1)
+                + c.eSample(CaloSampling.CaloSample.TileBar0)
+                + c.eSample(CaloSampling.CaloSample.TileGap1)
+                + c.eSample(CaloSampling.CaloSample.TileExt0)
+                for c in e.topo_clusters
+            ],
+            "clus_l3hcal": [
+                c.eSample(CaloSampling.CaloSample.HEC2)
+                + c.eSample(CaloSampling.CaloSample.TileBar1)
+                + c.eSample(CaloSampling.CaloSample.TileGap2)
+                + c.eSample(CaloSampling.CaloSample.TileExt1)
+                for c in e.topo_clusters
+            ],
+            "clus_l4hcal": [
+                c.eSample(CaloSampling.CaloSample.HEC3)
+                + c.eSample(CaloSampling.CaloSample.TileBar2)
+                + c.eSample(CaloSampling.CaloSample.TileGap3)
+                + c.eSample(CaloSampling.CaloSample.TileExt2)
+                for c in e.topo_clusters
+            ],
+            "clus_l1ecal": [
+                c.eSample(CaloSampling.CaloSample.PreSamplerB)
+                + c.eSample(CaloSampling.CaloSample.PreSamplerE)
+                for c in e.topo_clusters
+            ],
+            "clus_l2ecal": [
+                c.eSample(CaloSampling.CaloSample.EMB1)
+                + c.eSample(CaloSampling.CaloSample.EME1)
+                + c.eSample(CaloSampling.CaloSample.FCAL0)
+                for c in e.topo_clusters
+            ],
+            "clus_l3ecal": [
+                c.eSample(CaloSampling.CaloSample.EMB2)
+                + c.eSample(CaloSampling.CaloSample.EME2)
+                + c.eSample(CaloSampling.CaloSample.FCAL1)
+                for c in e.topo_clusters
+            ],
+            "clus_l4ecal": [
+                c.eSample(CaloSampling.CaloSample.EMB3)
+                + c.eSample(CaloSampling.CaloSample.EME3)
+                + c.eSample(CaloSampling.CaloSample.FCAL2)
+                for c in e.topo_clusters
+            ],
+            "clus_time": [c.time() for c in e.topo_clusters],
         }
     )
 
@@ -179,7 +227,9 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     result_list = fetch_training_data(ds_name, config)
 
     # Finally, write it out into a training file.
-    ak.to_parquet(result_list, "training.parquet")
+    ak.to_parquet(
+        result_list, "training.parquet", compression="GZIP", compression_level=9
+    )
 
 
 def run_query(
