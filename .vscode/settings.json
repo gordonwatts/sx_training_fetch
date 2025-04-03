@@ -33,6 +33,7 @@
     "mypy",
     "NNPDF",
     "nosetests",
+    "origclus",
     "PHYSLITE",
     "pipenv",
     "Pipfile",
