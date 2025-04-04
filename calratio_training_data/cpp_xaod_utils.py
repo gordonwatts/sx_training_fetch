@@ -69,7 +69,7 @@ def track_summary_value(trk: TrackParticle_v1, value_selector: xAOD.SummaryType)
     ...
 
 
-def cvt_to_calo_cluster_callback(
+def cvt_to_raw_calocluster_callback(
     s: ObjectStream[T], a: ast.Call
 ) -> Tuple[ObjectStream[T], ast.Call]:
     """Use dynamic cast to convert
@@ -84,31 +84,34 @@ def cvt_to_calo_cluster_callback(
     new_s = s.MetaData(
         {
             "metadata_type": "add_cpp_function",
-            "name": "cvt_to_calo_cluster",
+            "name": "cvt_to_raw_calocluster",
             "code": [
-                "auto rawObj = cluster->rawConstituent();\n",
-                "const xAOD::CaloCluster *r = dynamic_cast<const xAOD::CaloCluster*>(rawObj);\n",
-                "const xAOD::CaloCluster result(*r);\n",
+                "// Very ugly!\n",
+                "const xAOD::CaloCluster* clus = dynamic_cast<const xAOD::CaloCluster*>(*link);\n",
+                "const SG::AuxElement::ConstAccessor< ElementLink<xAOD::IParticleContainer> > "
+                'originalObject("originalObjectLink");\n',
+                "const xAOD::CaloCluster* result = dynamic_cast<const xAOD::CaloCluster*> "
+                "(*originalObject(*clus));\n",
             ],
             "result": "result",
-            "include_files": [],
-            "arguments": ["cluster"],
-            "return_type": "xAOD::CaloCluster_v1",
+            "include_files": ["xAODCaloEvent/CaloCluster.h"],
+            "arguments": ["link"],
+            "return_type": "const xAOD::CaloCluster_v1*",
         }
     )
 
     return new_s, a
 
 
-@func_adl_callable(cvt_to_calo_cluster_callback)
-def cvt_to_calo_cluster(
-    cluster: ElementLink_DataVector_xAOD_IParticle__,
+@func_adl_callable(cvt_to_raw_calocluster_callback)
+def cvt_to_raw_calocluster(
+    link: ElementLink_DataVector_xAOD_IParticle__,
 ) -> CaloCluster_v1:
     """
-    Converts a given cluster to a CaloCluster_v1 object.
+    Converts a given link to a cluster to a CaloCluster_v1 object.
 
     Args:
-        cluster (ElementLink_DataVector_xAOD_IParticle__): The input cluster to be converted.
+        link (ElementLink_DataVector_xAOD_IParticle__): The input cluster link to be converted.
 
     Returns:
         CaloCluster_v1: The converted CaloCluster_v1 object.
