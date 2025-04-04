@@ -24,15 +24,18 @@
     "fullrun",
     "gwatts",
     "hcal",
+    "histplot",
     "htmlcov",
     "ipython",
     "Localx",
     "lthigh",
     "mkdocs",
+    "mplhep",
     "muonsegment",
     "mypy",
     "NNPDF",
     "nosetests",
+    "origclus",
     "PHYSLITE",
     "pipenv",
     "Pipfile",
@@ -60,7 +63,10 @@
     "vxtype",
     "webassets",
     "xaodr",
-    "xrootd"
+    "xlabel",
+    "xrootd",
+    "ylabel",
+    "yscale"
   ],
   "jupyter.debugJustMyCode": false
 }
