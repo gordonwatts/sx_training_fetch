@@ -18,7 +18,7 @@ from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
-from .cpp_xaod_utils import cvt_to_calo_cluster, track_summary_value
+from .cpp_xaod_utils import cvt_to_raw_calocluster, track_summary_value
 from .sx_utils import build_sx_spec
 
 
@@ -41,7 +41,7 @@ class TopLevelEvent:
     pv_tracks: FADLStream[TrackParticle_v1]
     muon_segments: FADLStream[MuonSegment_v1]
     jets: FADLStream[Jet_v1]
-    clusters: FADLStream[FADLStream[CaloCluster_v1]]
+    jet_clusters: FADLStream[FADLStream[CaloCluster_v1]]
     topo_clusters: FADLStream[CaloCluster_v1]
 
     # All tracks with no selection at all. From Inner Detector container
@@ -72,8 +72,12 @@ def build_preselection():
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
-            clusters=[
-                [cvt_to_calo_cluster(cl) for cl in j.getConstituents()]
+            jet_clusters=[
+                [
+                    cvt_to_raw_calocluster(cl)
+                    for cl in j.constituentLinks()
+                    if cl.isValid()
+                ]
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
                 if j.pt() / 1000.0 > 40.0
             ],  # type: ignore
@@ -165,58 +169,75 @@ def fetch_training_data(
             #   Layer definitions come from https://gitlab.cern.ch/atlas-phys-exotics-llp-mscrid
             #       /fullrun2analysis/DiVertAnalysisR21/-/blob/master/DiVertAnalysis/Root
             #       /RegionVarCalculator_calRatio.cxx?ref_type=heads#L381
-            #
-            "clus_eta": [c.eta() for c in e.topo_clusters],
-            "clus_phi": [c.phi() for c in e.topo_clusters],
-            "clus_pt": [c.pt() / 1000.0 for c in e.topo_clusters],
+            # These are a double-nested list since the jet association is implicit in the xAOD.
+            "clus_eta": [
+                c.eta() for jet_clusters in e.jet_clusters for c in jet_clusters
+            ],
+            "clus_phi": [
+                c.phi() for jet_clusters in e.jet_clusters for c in jet_clusters
+            ],
+            "clus_pt": [
+                c.pt() / 1000.0 for jet_clusters in e.jet_clusters for c in jet_clusters
+            ],
             "clus_l1hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC0) for c in e.topo_clusters
+                c.eSample(CaloSampling.CaloSample.HEC0)
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l2hcal": [
                 c.eSample(CaloSampling.CaloSample.HEC1)
                 + c.eSample(CaloSampling.CaloSample.TileBar0)
                 + c.eSample(CaloSampling.CaloSample.TileGap1)
                 + c.eSample(CaloSampling.CaloSample.TileExt0)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l3hcal": [
                 c.eSample(CaloSampling.CaloSample.HEC2)
                 + c.eSample(CaloSampling.CaloSample.TileBar1)
                 + c.eSample(CaloSampling.CaloSample.TileGap2)
                 + c.eSample(CaloSampling.CaloSample.TileExt1)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l4hcal": [
                 c.eSample(CaloSampling.CaloSample.HEC3)
                 + c.eSample(CaloSampling.CaloSample.TileBar2)
                 + c.eSample(CaloSampling.CaloSample.TileGap3)
                 + c.eSample(CaloSampling.CaloSample.TileExt2)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l1ecal": [
                 c.eSample(CaloSampling.CaloSample.PreSamplerB)
                 + c.eSample(CaloSampling.CaloSample.PreSamplerE)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l2ecal": [
                 c.eSample(CaloSampling.CaloSample.EMB1)
                 + c.eSample(CaloSampling.CaloSample.EME1)
                 + c.eSample(CaloSampling.CaloSample.FCAL0)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l3ecal": [
                 c.eSample(CaloSampling.CaloSample.EMB2)
                 + c.eSample(CaloSampling.CaloSample.EME2)
                 + c.eSample(CaloSampling.CaloSample.FCAL1)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
             "clus_l4ecal": [
                 c.eSample(CaloSampling.CaloSample.EMB3)
                 + c.eSample(CaloSampling.CaloSample.EME3)
                 + c.eSample(CaloSampling.CaloSample.FCAL2)
-                for c in e.topo_clusters
+                for jet_clusters in e.jet_clusters
+                for c in jet_clusters
             ],
-            "clus_time": [c.time() for c in e.topo_clusters],
+            "clus_time": [
+                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+            ],
         }
     )
 
