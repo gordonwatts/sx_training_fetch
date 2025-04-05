@@ -49,7 +49,7 @@ class TopLevelEvent:
 
 
 def good_training_jet(jet: Jet_v1) -> bool:
-    """Check the the jet is good for training"""
+    """Check the the jet is good as a training"""
     return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5
 
 
