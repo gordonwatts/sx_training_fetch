@@ -48,6 +48,11 @@ class TopLevelEvent:
     all_tracks: FADLStream[TrackParticle_v1]
 
 
+def good_training_jet(jet: Jet_v1) -> bool:
+    """Check the the jet is good for training"""
+    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5
+
+
 def build_preselection():
     # Start the query
     query_base = FuncADLQueryPHYS()
@@ -70,7 +75,7 @@ def build_preselection():
             jets=[
                 j
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if j.pt() / 1000.0 > 40.0
+                if good_training_jet(j)
             ],  # type: ignore
             jet_clusters=[
                 [
@@ -79,7 +84,7 @@ def build_preselection():
                     if cl.isValid()
                 ]
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if j.pt() / 1000.0 > 40.0
+                if good_training_jet(j)
             ],  # type: ignore
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
