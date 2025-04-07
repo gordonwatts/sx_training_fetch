@@ -7,6 +7,7 @@ from func_adl_servicex_xaodr25.elementlink_datavector_xaod_iparticle__ import (
 )
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
+from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 
 from func_adl_servicex_xaodr25.xaod import xAOD, add_enum_info
 
@@ -117,3 +118,89 @@ def cvt_to_raw_calocluster(
         CaloCluster_v1: The converted CaloCluster_v1 object.
     """
     ...
+
+
+def add_jet_selection_tool(
+    stream: ObjectStream[T], tool_name: str, cut_name: str
+) -> ObjectStream[T]:
+    """
+    Adds a JetCleaningTool to the given ObjectStream with specified properties.
+    This function modifies the metadata of the provided ObjectStream to include
+    a JetCleaningTool instance. The tool is initialized with the given name and
+    configured with the specified cut level. Declared at a global level.
+
+    Note:
+        To access use the following code:
+
+        {tool_name}->keep(*jet);
+
+    Args:
+        stream (ObjectStream[T]): The object stream to which the JetCleaningTool
+            will be added.
+        tool_name (str): The name of the JetCleaningTool instance.
+        cut_name (str): The cut level to be set for the JetCleaningTool.
+    Returns:
+        ObjectStream[T]: The modified object stream with the added JetCleaningTool.
+    """
+    return stream.MetaData(
+        {
+            "metadata_type": "inject_code",
+            "name": "jet_tool_{tool_name}",
+            "header_includes": ["JetSelectorTools/JetCleaningTool.h"],
+            "private_members": [f"IJetSelector *{tool_name};"],
+            "instance_initialization": [
+                f'{tool_name}(new JetCleaningTool("{tool_name}"))'
+            ],
+            # TODO: These should be in the initialize command, with an ANA_CHECK.
+            "ctor_lines": [
+                f'asg::setProperty({tool_name}, "CutLevel", "{cut_name}");',
+                f"{tool_name}->initialize();",
+            ],
+            "link_libraries": ["JetSelectorToolsLib"],
+        }
+    )
+
+
+def jet_clean_llp_callback(
+    s: ObjectStream[T], a: ast.Call
+) -> Tuple[ObjectStream[T], ast.Call]:
+    new_s = s.MetaData(
+        {
+            "metadata_type": "add_cpp_function",
+            "name": "jet_cleaning_llp",
+            "code": ["bool result = m_jetCleaning_llp->keep(*jet);\n"],
+            "result": "result",
+            "include_files": [],
+            "arguments": ["jet"],
+            "return_type": "bool",
+        }
+    )
+    return new_s, a
+
+
+@func_adl_callable(jet_clean_llp_callback)
+def jet_clean_llp(jet: Jet_v1) -> bool:
+    """Call the jet selection on the jet.
+
+    * return true or false if the jet passes the selection cut.
+
+    Args:
+        jet (Jet_v1): The jet we are operating against
+        value_selector (int): Which value (pixel holes, etc.)
+
+    NOTE: This is a dummy function that injects C++ into the object stream to do the
+    actual work.
+
+    Returns:
+        bool: Did the jet pass?
+    """
+    ...
+
+
+# actual Include: include "JetSelectorTools/JetCleaningTool.h"
+# library: JetSelectorToolsLib
+# include: PhysicsAnalysis / JetMissingEtID / JetSelectorTools
+# Injected code that should occur once: m_jetCleaning_llp = new JetCleaningTool("JetCleaningLLP");
+#           asg::setProperty(m_jetCleaning_llp, "CutLevel", "LooseBadLLP");
+# Declared in the class: IJetSelector *m_jetCleaning_llp
+# Usage: m_jetCleaning_llp->keep(*jet);
