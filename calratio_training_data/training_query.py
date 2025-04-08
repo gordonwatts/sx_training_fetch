@@ -100,7 +100,9 @@ def build_preselection():
 
     # Preselection
     query_preselection = query_base_objects.Where(
-        lambda e: len(e.vertices) > 0 and e.vertices.First().nTrackParticles() > 0  # type: ignore
+        lambda e: len(e.vertices) > 0  # type: ignore
+        and e.vertices.First().nTrackParticles() > 0
+        and len(e.jets) > 0  # type: ignore
     )
 
     return query_preselection
