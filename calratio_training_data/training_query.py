@@ -55,7 +55,7 @@ class TopLevelEvent:
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check the the jet is good as a training"""
-    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5
+    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5 and jet_clean_llp(jet)
 
 
 def build_preselection():
@@ -82,7 +82,7 @@ def build_preselection():
             jets=[
                 j
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if good_training_jet(j) and jet_clean_llp(j)
+                if good_training_jet(j)
             ],  # type: ignore
             jet_clusters=[
                 [
@@ -91,7 +91,7 @@ def build_preselection():
                     if cl.isValid()
                 ]
                 for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if good_training_jet(j) and jet_clean_llp(j)
+                if good_training_jet(j)
             ],  # type: ignore
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
