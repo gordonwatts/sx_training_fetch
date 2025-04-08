@@ -167,8 +167,8 @@ def jet_clean_llp_callback(
     new_s = s.MetaData(
         {
             "metadata_type": "add_cpp_function",
-            "name": "jet_cleaning_llp",
-            "code": ["bool result = m_jetCleaning_llp->keep(*jet);\n"],
+            "name": "jet_clean_llp",
+            "code": ["bool result = _Cleaning_llp->keep(*jet);\n"],
             "result": "result",
             "include_files": [],
             "arguments": ["jet"],
