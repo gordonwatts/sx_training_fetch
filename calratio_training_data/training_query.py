@@ -61,7 +61,7 @@ def good_training_jet(jet: Jet_v1) -> bool:
 def build_preselection():
     # Start the query
     query_base = add_jet_selection_tool(
-        FuncADLQueryPHYS(), "_Cleaning_llp", "LooseBadLLP"
+        FuncADLQueryPHYS(), "m_jetCleaning_llp", "LooseBadLLP"
     )
 
     # Establish all the various types of objects we need.

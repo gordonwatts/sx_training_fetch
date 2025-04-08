@@ -152,9 +152,9 @@ def add_jet_selection_tool(
                 f'{tool_name}(new JetCleaningTool("{tool_name}"))'
             ],
             # TODO: These should be in the initialize command, with an ANA_CHECK.
-            "ctor_lines": [
-                f'asg::setProperty({tool_name}, "CutLevel", "{cut_name}");',
-                f"{tool_name}->initialize();",
+            "initialize_lines": [
+                f'ANA_CHECK(asg::setProperty({tool_name}, "CutLevel", "{cut_name}"));',
+                f"ANA_CHECK({tool_name}->initialize());",
             ],
             "link_libraries": ["JetSelectorToolsLib"],
         }
@@ -168,7 +168,7 @@ def jet_clean_llp_callback(
         {
             "metadata_type": "add_cpp_function",
             "name": "jet_clean_llp",
-            "code": ["bool result = _Cleaning_llp->keep(*jet);\n"],
+            "code": ["bool result = m_jetCleaning_llp->keep(*jet);\n"],
             "result": "result",
             "include_files": [],
             "arguments": ["jet"],
@@ -195,12 +195,3 @@ def jet_clean_llp(jet: Jet_v1) -> bool:
         bool: Did the jet pass?
     """
     ...
-
-
-# actual Include: include "JetSelectorTools/JetCleaningTool.h"
-# library: JetSelectorToolsLib
-# include: PhysicsAnalysis / JetMissingEtID / JetSelectorTools
-# Injected code that should occur once: m_jetCleaning_llp = new JetCleaningTool("JetCleaningLLP");
-#           asg::setProperty(m_jetCleaning_llp, "CutLevel", "LooseBadLLP");
-# Declared in the class: IJetSelector *m_jetCleaning_llp
-# Usage: m_jetCleaning_llp->keep(*jet);
