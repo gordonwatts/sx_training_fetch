@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Dict
 
 import awkward as ak
 import servicex_local as sx_local
@@ -271,7 +272,7 @@ def run_query(
     ds_name: str,
     query: ObjectStream,
     config: RunConfig = RunConfig(ignore_cache=False, run_locally=False),
-):
+) -> Dict[str, ak.Array]:
     # Build the ServiceX spec and run it.
     spec, backend_name, adaptor = build_sx_spec(query, ds_name, config.run_locally)
     if config.run_locally or backend_name == "local-backend":
