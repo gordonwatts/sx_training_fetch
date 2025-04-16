@@ -87,12 +87,12 @@ def cvt_to_raw_calocluster_callback(
             "metadata_type": "add_cpp_function",
             "name": "cvt_to_raw_calocluster",
             "code": [
-                "// Very ugly!\n",
-                "const xAOD::CaloCluster* clus = dynamic_cast<const xAOD::CaloCluster*>(*link);\n",
+                "// Very ugly",
+                "const xAOD::CaloCluster* clus = dynamic_cast<const xAOD::CaloCluster*>(*link)",
                 "const SG::AuxElement::ConstAccessor< ElementLink<xAOD::IParticleContainer> > "
-                'originalObject("originalObjectLink");\n',
+                'originalObject("originalObjectLink")',
                 "const xAOD::CaloCluster* result = dynamic_cast<const xAOD::CaloCluster*> "
-                "(*originalObject(*clus));\n",
+                "(*originalObject(*clus))",
             ],
             "result": "result",
             "include_files": ["xAODCaloEvent/CaloCluster.h"],
@@ -168,7 +168,7 @@ def jet_clean_llp_callback(
         {
             "metadata_type": "add_cpp_function",
             "name": "jet_clean_llp",
-            "code": ["bool result = m_jetCleaning_llp->keep(*jet);\n"],
+            "code": ["bool result = m_jetCleaning_llp->keep(*jet)"],
             "result": "result",
             "include_files": [],
             "arguments": ["jet"],
