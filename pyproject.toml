@@ -17,7 +17,6 @@ dependencies = [
     "ServiceX-Local",
     "servicex",
     "func_adl_servicex_xaodr25",
-    "servicex-cli",
     "servicex-analysis-utils",
 ]
 
