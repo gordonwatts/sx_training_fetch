@@ -13,16 +13,15 @@ dependencies = [
     "dask_awkward",
     "uproot",
     "func_adl_xAOD",
-    "func_adl==3.4.0b6",
+    "func_adl",
     "ServiceX-Local",
     "servicex",
     "func_adl_servicex_xaodr25",
-    "servicex-cli",
     "servicex-analysis-utils",
 ]
 
 [project.optional-dependencies]
-dev = ["black", "typer", "servicex-cli", "pytest", "pytest-mock"]
+dev = ["black", "typer", "pytest", "pytest-mock"]
 notebook = ["jupyterlab", "ipywidgets", "hist", "mplhep", "scipy", "pandas"]
 
 [project.scripts]
