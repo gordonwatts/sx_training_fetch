@@ -13,7 +13,7 @@ dependencies = [
     "dask_awkward",
     "uproot",
     "func_adl_xAOD",
-    "func_adl==3.4.0b6",
+    "func_adl",
     "ServiceX-Local",
     "servicex",
     "func_adl_servicex_xaodr25",
