@@ -35,7 +35,7 @@ def main(
     ),
     ignore_cache: bool = typer.Option(
         False,
-        "--ignore_cache",
+        "--ignore-cache",
         help="Ignore cache and fetch fresh data",
     ),
     local: bool = typer.Option(
