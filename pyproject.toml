@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "typer", "servicex-cli", "pytest", "pytest-mock"]
+dev = ["black", "typer", "pytest", "pytest-mock"]
 notebook = ["jupyterlab", "ipywidgets", "hist", "mplhep", "scipy", "pandas"]
 
 [project.scripts]
