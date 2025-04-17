@@ -12,7 +12,10 @@
             "console": "integratedTerminal",
             "args": [
                 // "--ignore_cache",
-                "DAOD_LLP1.outputLLP1_mc23_537565_trigger.pool.root"
+                // "DAOD_LLP1.outputLLP1_mc23_537565_trigger.pool.root",
+                "https://cernbox.cern.ch/files/spaces/eos/user/p/pereirap/DAOD_LLP1.outputLLP1_mc23_527565_NoLeadingJetsTracksAllPt_09042025.pool.root",
+                "--output=junk.parquet",
+                "--local",
             ]
         }
     ]
