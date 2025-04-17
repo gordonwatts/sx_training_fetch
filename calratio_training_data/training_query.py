@@ -32,6 +32,7 @@ from .sx_utils import build_sx_spec
 class RunConfig:
     ignore_cache: bool
     run_locally: bool
+    output_path: str = "training.parquet"
 
 
 @dataclass
@@ -263,7 +264,7 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
     # Finally, write it out into a training file.
     ak.to_parquet(
-        result_list, "training.parquet", compression="GZIP", compression_level=9
+        result_list, config.output_path, compression="GZIP", compression_level=9
     )
 
 
