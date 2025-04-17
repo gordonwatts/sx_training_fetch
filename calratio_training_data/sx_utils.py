@@ -79,13 +79,12 @@ def find_dataset(
 
         # Check for the special case of cernbox - which we might be able to convert to
         # a xrootd path.
-        if not prefer_local:
-            parsed_url = urlparse(url)
-            if "cernbox.cern.ch" in parsed_url.netloc and parsed_url.path.startswith(
-                "/files/spaces"
-            ):
-                remote_file = f"root://eospublic.cern.ch{parsed_url.path[13:]}"
-                what_is_it = "remote_file"
+        parsed_url = urlparse(url)
+        if "cernbox.cern.ch" in parsed_url.netloc and parsed_url.path.startswith(
+            "/files/spaces"
+        ):
+            net_file = f"root://eospublic.cern.ch/{parsed_url.path[13:]}"
+            what_is_it = "xrootd_file"
 
     elif re.match(r"^file://", ds_name):
         # Convert file URI to a path in a cross-platform way
@@ -125,9 +124,12 @@ def find_dataset(
             return dataset.FileList([str(file)]), SXLocationOptions.mustUseLocal
         else:
             raise ValueError(f"This local file {file} does not exist.")
-    elif what_is_it == "remote_file":
-        logging.debug(f"Interpreting {ds_name} as a remote file ({remote_file})")
-        return dataset.FileList([remote_file]), SXLocationOptions.mustUseRemote
+    elif what_is_it == "xrootd_file":
+        logging.debug(f"Interpreting {ds_name} as a xrootd file ({net_file})")
+        return dataset.FileList([str(net_file)]), SXLocationOptions.anyLocation
+    # elif what_is_it == "remote_file":
+    #     logging.debug(f"Interpreting {ds_name} as a remote file ({remote_file})")
+    #     return dataset.FileList([remote_file]), SXLocationOptions.mustUseRemote
     elif what_is_it == "rucio":
         logging.debug(f"Interpreting {ds_name} as a rucio dataset ({did})")
         return dataset.Rucio(did), SXLocationOptions.mustUseRemote
