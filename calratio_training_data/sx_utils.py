@@ -99,6 +99,13 @@ def find_dataset(
     elif re.match(r"^rucio://", ds_name):
         what_is_it = "rucio"
         did = ds_name[8:]
+    elif re.match(r"^/eos/user", ds_name):
+        file = Path(ds_name)
+        if file.exists():
+            what_is_it = "file"
+        else:
+            what_is_it = "xrootd_file"
+            net_file = f"root://eos.cern.ch/{ds_name}"
     else:
         # Now we need to use heuristics to decide what this is. If you are running
         # on a file that does not exist you'll get a DID error here. Ugh.
