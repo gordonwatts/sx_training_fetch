@@ -43,6 +43,12 @@ def main(
         "--local",
         help="Run ServiceX locally, fail if not possible (requires docker)",
     ),
+    output: str = typer.Option(
+        "training.parquet",
+        "--output",
+        "-o",
+        help="Output file path (default: training.parquet)",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -53,7 +59,9 @@ def main(
         RunConfig,
     )
 
-    run_config = RunConfig(ignore_cache=ignore_cache, run_locally=local)
+    run_config = RunConfig(
+        ignore_cache=ignore_cache, run_locally=local, output_path=output
+    )
     fetch_training_data_to_file(dataset, run_config)
 
 
