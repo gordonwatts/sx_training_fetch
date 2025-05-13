@@ -1,12 +1,12 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict
 
 import awkward as ak
 import servicex_local as sx_local
+import vector
 from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
-
 from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
@@ -19,13 +19,17 @@ from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
+from calratio_training_data.constants import JET_TRACK_DELTA_R
+
 from .cpp_xaod_utils import (
-    cvt_to_raw_calocluster,
-    track_summary_value,
     add_jet_selection_tool,
+    cvt_to_raw_calocluster,
     jet_clean_llp,
+    track_summary_value,
 )
 from .sx_utils import build_sx_spec
+
+vector.register_awkward()
 
 
 # New data class for run configuration options
@@ -260,8 +264,68 @@ def fetch_training_data(
     return run_query(ds_name, query, config)
 
 
+def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
+    """
+    Convert raw data dictionary to training data format.
+
+    Args:
+        raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
+
+    Returns:
+        ak.Record: The processed training data, suitable for writing to parquet.
+    """
+    # Build vectors for all the delta r calculations we are going to have to do.
+    jets = ak.zip(
+        {
+            "pt": data.jet_pt,  # type: ignore
+            "eta": data.jet_eta,  # type: ignore
+            "phi": data.jet_phi,  # type: ignore
+        },
+        with_name="Momentum3D",
+    )
+    tracks = ak.zip(
+        {
+            "eta": data.track_eta,  # type: ignore
+            "phi": data.track_phi,  # type: ignore
+            "pt": data.track_pT,  # type: ignore
+        },
+        with_name="Momentum3D",
+    )
+
+    # Compute DeltaR between each jet and all tracks in the same event
+    jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
+    delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
+
+    nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
+
+    # Finally, build the data we will write out!
+    training_data = ak.zip(
+        {
+            "jets": ak.zip(
+                {
+                    "pt": jets.pt,
+                    "eta": jets.eta,
+                    "phi": jets.phi,
+                    "tracks": ak.zip(
+                        {
+                            "pt": nearby_tracks.pt,
+                            "eta": nearby_tracks.eta,
+                            "phi": nearby_tracks.phi,
+                        },
+                        with_name="Momentum3D",
+                    ),
+                },
+                with_name="Momentum3D",
+            ),
+        }
+    )
+
+    return training_data
+
+
 def fetch_training_data_to_file(ds_name: str, config: RunConfig):
-    result_list = fetch_training_data(ds_name, config)
+    raw_data = fetch_training_data(ds_name, config)
+    result_list = convert_to_training_data(raw_data)
 
     # Finally, write it out into a training file.
     ak.to_parquet(
