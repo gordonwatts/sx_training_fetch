@@ -330,6 +330,8 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
     # Finally, build the data we will write out!
     training_data = ak.Record(
         {
+            "runNumber": data.runNumber,  # type: ignore
+            "eventNumber": data.eventNumber,  # type: ignore
             "pt": jets.pt,
             "eta": jets.eta,
             "phi": jets.phi,
