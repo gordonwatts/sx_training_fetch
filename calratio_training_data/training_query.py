@@ -301,12 +301,31 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
         },
         with_name="Momentum3D",
     )
+    msegs = ak.zip(
+        {
+            "x": data.MSeg_x,  # type: ignore
+            "y": data.MSeg_y,  # type: ignore
+            "z": data.MSeg_z,  # type: ignore
+            "px": data.MSeg_px,  # type: ignore
+            "py": data.MSeg_py,  # type: ignore
+            "pz": data.MSeg_pz,  # type: ignore
+            "t0": data.MSeg_t0,  # type: ignore
+            "chiSquared": data.MSeg_chiSquared,  # type: ignore
+        },
+        # We need to use the x, y, and z!!
+        with_name="Vector3D",
+    )
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
     delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
 
     nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
+
+    # Compute the delta phi between each jet and msegs in the same event
+    jet_mseg_pairs = ak.cartesian({"jet": jets, "mseg": msegs}, axis=1, nested=True)
+    delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg)
+    nearby_msegs = jet_mseg_pairs.mseg[delta_phi < JET_TRACK_DELTA_R]
 
     # Finally, build the data we will write out!
     training_data = ak.Record(
@@ -338,6 +357,19 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
                     "time": data.clus_time,  # type: ignore
                 },
                 with_name="Momentum3D",
+            ),
+            "msegs": ak.zip(
+                {
+                    "x": nearby_msegs.x,
+                    "y": nearby_msegs.y,
+                    "z": nearby_msegs.z,
+                    "px": nearby_msegs.px,
+                    "py": nearby_msegs.py,
+                    "pz": nearby_msegs.pz,
+                    "t0": nearby_msegs.t0,
+                    "chiSquared": nearby_msegs.chiSquared,
+                },
+                with_name="Vector3D",
             ),
         },
         with_name="Momentum3D",
