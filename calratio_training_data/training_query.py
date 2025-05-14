@@ -299,78 +299,77 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
     nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
 
     # Finally, build the data we will write out!
-    training_data = ak.zip(
+    training_data = ak.Record(
         {
-            "jets": ak.zip(
+            "pt": jets.pt,
+            "eta": jets.eta,
+            "phi": jets.phi,
+            "tracks": ak.zip(
                 {
-                    "pt": jets.pt,
-                    "eta": jets.eta,
-                    "phi": jets.phi,
-                    "tracks": ak.zip(
-                        {
-                            "pt": nearby_tracks.pt,
-                            "eta": nearby_tracks.eta,
-                            "phi": nearby_tracks.phi,
-                        },
-                        with_name="Momentum3D",
-                    ),
-                    "clusters": ak.zip(
-                        {
-                            "eta": data.clus_eta,  # type: ignore
-                            "phi": data.clus_phi,  # type: ignore
-                            "pt": data.clus_pt,  # type: ignore
-                            "l1hcal": data.clus_l1hcal,  # type: ignore
-                            "l2hcal": data.clus_l2hcal,  # type: ignore
-                            "l3hcal": data.clus_l3hcal,  # type: ignore
-                            "l4hcal": data.clus_l4hcal,  # type: ignore
-                            "l1ecal": data.clus_l1ecal,  # type: ignore
-                            "l2ecal": data.clus_l2ecal,  # type: ignore
-                            "l3ecal": data.clus_l3ecal,  # type: ignore
-                            "l4ecal": data.clus_l4ecal,  # type: ignore
-                            "time": data.clus_time,  # type: ignore
-                        },
-                        with_name="Momentum3D",
-                    ),
+                    "pt": nearby_tracks.pt,
+                    "eta": nearby_tracks.eta,
+                    "phi": nearby_tracks.phi,
                 },
                 with_name="Momentum3D",
             ),
-        }
-    )
-
-    clusters = ak.zip(
-        {
-            "eta": data.clus_eta,  # type: ignore
-            "phi": data.clus_phi,  # type: ignore
-            "pt": data.clus_pt,  # type: ignore
-            "l1hcal": data.clus_l1hcal,  # type: ignore
-            "l2hcal": data.clus_l2hcal,  # type: ignore
-            "l3hcal": data.clus_l3hcal,  # type: ignore
-            "l4hcal": data.clus_l4hcal,  # type: ignore
-            "l1ecal": data.clus_l1ecal,  # type: ignore
-            "l2ecal": data.clus_l2ecal,  # type: ignore
-            "l3ecal": data.clus_l3ecal,  # type: ignore
-            "l4ecal": data.clus_l4ecal,  # type: ignore
-            "time": data.clus_time,  # type: ignore
-        },
-        with_name="Momentum3D",
-    )
-    tracks = ak.zip(
-        {
-            "pt": nearby_tracks.pt,
-            "eta": nearby_tracks.eta,
-            "phi": nearby_tracks.phi,
+            "clusters": ak.zip(
+                {
+                    "eta": data.clus_eta,  # type: ignore
+                    "phi": data.clus_phi,  # type: ignore
+                    "pt": data.clus_pt,  # type: ignore
+                    "l1hcal": data.clus_l1hcal,  # type: ignore
+                    "l2hcal": data.clus_l2hcal,  # type: ignore
+                    "l3hcal": data.clus_l3hcal,  # type: ignore
+                    "l4hcal": data.clus_l4hcal,  # type: ignore
+                    "l1ecal": data.clus_l1ecal,  # type: ignore
+                    "l2ecal": data.clus_l2ecal,  # type: ignore
+                    "l3ecal": data.clus_l3ecal,  # type: ignore
+                    "l4ecal": data.clus_l4ecal,  # type: ignore
+                    "time": data.clus_time,  # type: ignore
+                },
+                with_name="Momentum3D",
+            ),
         },
         with_name="Momentum3D",
     )
 
-    for i in range(len(clusters)):
-        if len(clusters[i]) != len(tracks[i]) or (len(clusters[i]) != len(jets[i])):
-            print(clusters[i].type.show())
-            print(tracks[i].type.show())
-            print(jets[i].type.show())
-            print(i)
+    # clusters = ak.zip(
+    #     {
+    #         "eta": data.clus_eta,  # type: ignore
+    #         "phi": data.clus_phi,  # type: ignore
+    #         "pt": data.clus_pt,  # type: ignore
+    #         "l1hcal": data.clus_l1hcal,  # type: ignore
+    #         "l2hcal": data.clus_l2hcal,  # type: ignore
+    #         "l3hcal": data.clus_l3hcal,  # type: ignore
+    #         "l4hcal": data.clus_l4hcal,  # type: ignore
+    #         "l1ecal": data.clus_l1ecal,  # type: ignore
+    #         "l2ecal": data.clus_l2ecal,  # type: ignore
+    #         "l3ecal": data.clus_l3ecal,  # type: ignore
+    #         "l4ecal": data.clus_l4ecal,  # type: ignore
+    #         "time": data.clus_time,  # type: ignore
+    #     },
+    #     with_name="Momentum3D",
+    # )
+    # tracks = ak.zip(
+    #     {
+    #         "pt": nearby_tracks.pt,
+    #         "eta": nearby_tracks.eta,
+    #         "phi": nearby_tracks.phi,
+    #     },
+    #     with_name="Momentum3D",
+    # )
 
-    print(clusters[25].type.show())
+    # for i in range(len(clusters)):
+    #     if len(clusters[i]) != len(tracks[i]) or (len(clusters[i]) != len(jets[i])):
+    #         print(clusters[i].type.show())
+    #         print(tracks[i].type.show())
+    #         print(jets[i].type.show())
+    #         print(i)
+
+    # print(clusters[25].type.show())
+
+    # print(training_data.type.show())
+    # print(training_data[0].type.show())
 
     return training_data
 
