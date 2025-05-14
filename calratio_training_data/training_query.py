@@ -288,6 +288,16 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             "eta": data.track_eta,  # type: ignore
             "phi": data.track_phi,  # type: ignore
             "pt": data.track_pT,  # type: ignore
+            "vertex_nParticles": data.track_vertex_nParticles,  # type: ignore
+            "d0": data.track_d0,  # type: ignore
+            "z0": data.track_z0,  # type: ignore
+            "chiSquared": data.track_chiSquared,  # type: ignore
+            "PixelShared": data.track_PixelShared,  # type: ignore
+            "SCTShared": data.track_SCTShared,  # type: ignore
+            "PixelHoles": data.track_PixelHoles,  # type: ignore
+            "SCTHoles": data.track_SCTHoles,  # type: ignore
+            "PixelHits": data.track_PixelHits,  # type: ignore
+            "SCTHits": data.track_SCTHits,  # type: ignore
         },
         with_name="Momentum3D",
     )
