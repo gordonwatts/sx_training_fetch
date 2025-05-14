@@ -306,14 +306,19 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             "x": data.MSeg_x,  # type: ignore
             "y": data.MSeg_y,  # type: ignore
             "z": data.MSeg_z,  # type: ignore
-            "px": data.MSeg_px,  # type: ignore
-            "py": data.MSeg_py,  # type: ignore
-            "pz": data.MSeg_pz,  # type: ignore
             "t0": data.MSeg_t0,  # type: ignore
             "chiSquared": data.MSeg_chiSquared,  # type: ignore
         },
         # We need to use the x, y, and z!!
         with_name="Vector3D",
+    )
+    msegs_p = ak.zip(
+        {
+            "px": data.MSeg_px,  # type: ignore
+            "py": data.MSeg_py,  # type: ignore
+            "pz": data.MSeg_pz,  # type: ignore
+        },
+        with_name="Momentum3D",
     )
 
     # Compute DeltaR between each jet and all tracks in the same event
@@ -323,9 +328,17 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
     nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
 
     # Compute the delta phi between each jet and msegs in the same event
-    jet_mseg_pairs = ak.cartesian({"jet": jets, "mseg": msegs}, axis=1, nested=True)
-    delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg)
-    nearby_msegs = jet_mseg_pairs.mseg[delta_phi < JET_TRACK_DELTA_R]
+    jet_mseg_pairs = ak.cartesian(
+        {
+            "jet": jets,
+            "mseg": ak.zip({"x": msegs, "p": msegs_p}),
+        },
+        axis=1,
+        nested=True,
+    )
+    delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
+    mseg_mask = delta_phi < JET_TRACK_DELTA_R
+    nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
     # Finally, build the data we will write out!
     training_data = ak.Record(
@@ -335,14 +348,7 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             "pt": jets.pt,
             "eta": jets.eta,
             "phi": jets.phi,
-            "tracks": ak.zip(
-                {
-                    "pt": nearby_tracks.pt,
-                    "eta": nearby_tracks.eta,
-                    "phi": nearby_tracks.phi,
-                },
-                with_name="Momentum3D",
-            ),
+            "tracks": nearby_tracks,
             "clusters": ak.zip(
                 {
                     "eta": data.clus_eta,  # type: ignore
@@ -362,16 +368,13 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             ),
             "msegs": ak.zip(
                 {
-                    "x": nearby_msegs.x,
-                    "y": nearby_msegs.y,
-                    "z": nearby_msegs.z,
-                    "px": nearby_msegs.px,
-                    "py": nearby_msegs.py,
-                    "pz": nearby_msegs.pz,
-                    "t0": nearby_msegs.t0,
-                    "chiSquared": nearby_msegs.chiSquared,
+                    "etaPos": nearby_msegs.x.eta,
+                    "phiPos": nearby_msegs.x.phi,
+                    "etaDir": nearby_msegs.p.eta,
+                    "phiDir": nearby_msegs.p.phi,
+                    "t0": nearby_msegs.x.t0,
+                    "chiSquared": nearby_msegs.x.chiSquared,
                 },
-                with_name="Vector3D",
             ),
         },
         with_name="Momentum3D",
