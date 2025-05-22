@@ -15,13 +15,13 @@ from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
+from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
-from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
-from calratio_training_data.constants import JET_TRACK_DELTA_R
+from calratio_training_data.constants import JET_TRACK_DELTA_R, LLP_JET_DELTA_R
 
 from .cpp_xaod_utils import (
     add_jet_selection_tool,
@@ -298,6 +298,16 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
         ak.Record: The processed training data, suitable for writing to parquet.
     """
     # Build vectors for all the delta r calculations we are going to have to do.
+    llps = ak.zip(
+        {
+            "eta": data.LLP_eta,  # type: ignore
+            "phi": data.LLP_phi,  # type: ignore
+            "pt": data.LLP_pt,  # type: ignore
+            "Lz": data.LLP_Lz,  # type: ignore
+            "Lxy": data.LLP_Lxy,  # type: ignore
+        },
+        with_name="Momentum3D",
+    )
     jets = ak.zip(
         {
             "pt": data.jet_pt,  # type: ignore
@@ -343,6 +353,31 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
         },
         with_name="Momentum3D",
     )
+    clusters = (
+        ak.zip(
+            {
+                "eta": data.clus_eta,  # type: ignore
+                "phi": data.clus_phi,  # type: ignore
+                "pt": data.clus_pt,  # type: ignore
+                "l1hcal": data.clus_l1hcal,  # type: ignore
+                "l2hcal": data.clus_l2hcal,  # type: ignore
+                "l3hcal": data.clus_l3hcal,  # type: ignore
+                "l4hcal": data.clus_l4hcal,  # type: ignore
+                "l1ecal": data.clus_l1ecal,  # type: ignore
+                "l2ecal": data.clus_l2ecal,  # type: ignore
+                "l3ecal": data.clus_l3ecal,  # type: ignore
+                "l4ecal": data.clus_l4ecal,  # type: ignore
+                "time": data.clus_time,  # type: ignore
+            },
+            with_name="Momentum3D",
+        ),
+    )
+    # Figure out what jets are close to the LLPs.
+    llp_jet_pairs = ak.cartesian({"llp": llps, "jet": jets}, axis=1, nested=True)
+    delta_r_llp = llp_jet_pairs.llp.deltaR(llp_jet_pairs.jet)
+    jets_near_llps = llp_jet_pairs.jet[delta_r_llp < LLP_JET_DELTA_R]
+    # jets = jets[jets_near_llps]
+    # clusters = clusters[jets_near_llps]
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
@@ -373,23 +408,7 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             "eta": jets.eta,
             "phi": jets.phi,
             "tracks": nearby_tracks,
-            "clusters": ak.zip(
-                {
-                    "eta": data.clus_eta,  # type: ignore
-                    "phi": data.clus_phi,  # type: ignore
-                    "pt": data.clus_pt,  # type: ignore
-                    "l1hcal": data.clus_l1hcal,  # type: ignore
-                    "l2hcal": data.clus_l2hcal,  # type: ignore
-                    "l3hcal": data.clus_l3hcal,  # type: ignore
-                    "l4hcal": data.clus_l4hcal,  # type: ignore
-                    "l1ecal": data.clus_l1ecal,  # type: ignore
-                    "l2ecal": data.clus_l2ecal,  # type: ignore
-                    "l3ecal": data.clus_l3ecal,  # type: ignore
-                    "l4ecal": data.clus_l4ecal,  # type: ignore
-                    "time": data.clus_time,  # type: ignore
-                },
-                with_name="Momentum3D",
-            ),
+            "clusters": clusters,
             "msegs": ak.zip(
                 {
                     "etaPos": nearby_msegs.x.eta,
