@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Dict
 
 import awkward as ak
 import servicex_local as sx_local
