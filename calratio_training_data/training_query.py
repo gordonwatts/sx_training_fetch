@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from math import sqrt
 from typing import Dict
 
 import awkward as ak
@@ -16,6 +17,7 @@ from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
+from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
@@ -57,6 +59,9 @@ class TopLevelEvent:
 
     # All tracks with no selection at all. From Inner Detector container
     all_tracks: FADLStream[TrackParticle_v1]
+
+    # Truth particles
+    bsm_particles: FADLStream[TruthParticle_v1]
 
 
 def good_training_jet(jet: Jet_v1) -> bool:
@@ -101,6 +106,9 @@ def build_preselection():
             ],  # type: ignore
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
+            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles").Where(
+                lambda truth_p: abs(truth_p.pdgId()) == 50
+            ),
         )
     )
 
@@ -258,6 +266,20 @@ def fetch_training_data(
             ],
             "clus_time": [
                 c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+            ],
+            "LLP_eta": [p.eta() for p in e.bsm_particles],
+            "LLP_phi": [p.eta() for p in e.bsm_particles],
+            "LLP_pt": [p.pt() / 1000.0 for p in e.bsm_particles],
+            "LLP_Lz": [
+                p.decayVtx().z() if p.hasDecayVtx() else 0.0 for p in e.bsm_particles
+            ],
+            "LLP_Lxy": [
+                (
+                    sqrt(p.decayVtx().x() ** 2 + p.decayVtx().y() ** 2)
+                    if p.hasDecayVtx()
+                    else 0.0
+                )
+                for p in e.bsm_particles
             ],
         }
     )
