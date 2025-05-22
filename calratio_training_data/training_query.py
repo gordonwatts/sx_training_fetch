@@ -132,6 +132,7 @@ def fetch_training_data(
         lambda e: {
             "runNumber": e.event_info.runNumber(),
             "eventNumber": e.event_info.eventNumber(),
+            "mcEventWeight": e.event_info.mcEventWeight(0),
             #
             # Track Info
             #
@@ -345,6 +346,7 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
         {
             "runNumber": data.runNumber,  # type: ignore
             "eventNumber": data.eventNumber,  # type: ignore
+            "mcEventWeight": data.mcEventWeight,  # type: ignore
             "pt": jets.pt,
             "eta": jets.eta,
             "phi": jets.phi,
