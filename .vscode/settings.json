@@ -41,6 +41,7 @@
     "NNPDF",
     "nosetests",
     "origclus",
+    "pdgid",
     "PHYSLITE",
     "pipenv",
     "Pipfile",

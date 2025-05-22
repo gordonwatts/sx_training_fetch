@@ -107,7 +107,7 @@ def build_preselection():
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
             bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles").Where(
-                lambda truth_p: abs(truth_p.pdgId()) == 50
+                lambda truth_p: abs(truth_p.pdgId()) == 35
             ),
         )
     )
@@ -270,6 +270,7 @@ def fetch_training_data(
             "LLP_eta": [p.eta() for p in e.bsm_particles],
             "LLP_phi": [p.eta() for p in e.bsm_particles],
             "LLP_pt": [p.pt() / 1000.0 for p in e.bsm_particles],
+            "LLP_pdgid": [p.absPdgId() for p in e.bsm_particles],
             "LLP_Lz": [
                 p.decayVtx().z() if p.hasDecayVtx() else 0.0 for p in e.bsm_particles
             ],
@@ -372,12 +373,23 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             with_name="Momentum3D",
         ),
     )
+
     # Figure out what jets are close to the LLPs.
-    llp_jet_pairs = ak.cartesian({"llp": llps, "jet": jets}, axis=1, nested=True)
-    delta_r_llp = llp_jet_pairs.llp.deltaR(llp_jet_pairs.jet)
-    jets_near_llps = llp_jet_pairs.jet[delta_r_llp < LLP_JET_DELTA_R]
-    # jets = jets[jets_near_llps]
-    # clusters = clusters[jets_near_llps]
+    llp_jet_pairs = ak.cartesian(
+        {
+            "jet": jets,
+            "llp": llps,
+        },
+        axis=1,
+        nested=True,
+    )
+    delta_r_jet_llp = llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp)
+    jets_near_llps_mask = ak.all(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
+    jets = jets[jets_near_llps_mask]
+    clusters = clusters[jets_near_llps_mask]
+
+    if ak.count(jets) == 0:
+        raise ValueError("No jets found near LLPs.")
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
