@@ -385,9 +385,20 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
     jets_near_llps_mask = ak.all(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
     jets = jets[jets_near_llps_mask]
     clusters = clusters[jets_near_llps_mask]
-
     if ak.count(jets) == 0:
         raise ValueError("No jets found near LLPs.")
+
+    # And for those jets, get a match LLP. Easiest is to re-run the matching.
+    llp_jet_pairs = ak.cartesian(
+        {
+            "jet": jets,
+            "llp": llps,
+        },
+        axis=1,
+        nested=True,
+    )
+    llp_match_jet_index = ak.argmin(llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1)
+    llp_match_jet = llps[llp_match_jet_index]
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
@@ -417,6 +428,7 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             "pt": jets.pt,
             "eta": jets.eta,
             "phi": jets.phi,
+            "llp": llp_match_jet,
             "tracks": nearby_tracks,
             "clusters": clusters,
             "msegs": ak.zip(
