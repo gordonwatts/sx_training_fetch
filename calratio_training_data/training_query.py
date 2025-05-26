@@ -397,7 +397,9 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
         axis=1,
         nested=True,
     )
-    llp_match_jet_index = ak.argmin(llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1)
+    llp_match_jet_index = ak.argmin(
+        llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
+    )
     llp_match_jet = llps[llp_match_jet_index]
 
     # Compute DeltaR between each jet and all tracks in the same event
