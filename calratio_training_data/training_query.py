@@ -428,31 +428,25 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     # Fill this dict with the leaves we want in the training data.
     per_jet_training_data_dict = {}
 
-    # Jets
-    #   Like most things, these need to be unrolled so we end up with a per-jet array, not
-    #   per event.
+    # Build the final per-jet training data. This requires reshaping and broadcasting
+    # a number of arrays we have.
+    # per_jet_training_data_dict["runNumber"] = ak.flatten(
+    #     ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
+    # )
+    # per_jet_training_data_dict["eventNumber"] = ak.flatten(
+    #     ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
+    # )
+
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
 
-    # Some of the per-event variables (one per event) - need to fill them out
-    # to match the per-jet shapes.
-    per_jet_training_data_dict["runNumber"] = ak.flatten(
-        ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
-    )
-    per_jet_training_data_dict["eventNumber"] = ak.flatten(
-        ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
-    )
+    per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
+    # per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
 
     # Finally, build the data we will write out!
     # training_data = ak.Record(
     #     {
-    #         "runNumber": data.runNumber,  # type: ignore
-    #         "eventNumber": data.eventNumber,  # type: ignore
-    #         "pt": jets.pt,
-    #         "eta": jets.eta,
-    #         "phi": jets.phi,
-    #         "tracks": nearby_tracks,
     #         "clusters": clusters,
     #         "msegs": ak.zip(
     #             {
@@ -475,7 +469,9 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     #     },
     #     with_name="Momentum3D",
     # )
-    training_data = ak.Record(per_jet_training_data_dict, with_name="Momentum3D")
+    training_data = ak.zip(
+        per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
+    )
 
     return training_data
 
