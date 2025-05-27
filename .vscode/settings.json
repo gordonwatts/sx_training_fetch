@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "argmin",
     "Atlasx",
     "Calo",
     "calocluster",
@@ -29,6 +30,7 @@
     "histplot",
     "htmlcov",
     "ipython",
+    "llps",
     "Localx",
     "lthigh",
     "mkdocs",
@@ -40,6 +42,7 @@
     "NNPDF",
     "nosetests",
     "origclus",
+    "pdgid",
     "PHYSLITE",
     "pipenv",
     "Pipfile",
@@ -62,6 +65,7 @@
     "SXDS",
     "Topo",
     "trackparticle",
+    "truthparticle",
     "typer",
     "venv",
     "vxtype",
