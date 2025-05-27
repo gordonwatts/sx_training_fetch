@@ -40,6 +40,7 @@ class RunConfig:
     ignore_cache: bool
     run_locally: bool
     output_path: str = "training.parquet"
+    mc: bool = False
 
 
 @dataclass
@@ -268,7 +269,7 @@ def fetch_training_data(
                 c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
             ],
             "LLP_eta": [p.eta() for p in e.bsm_particles],
-            "LLP_phi": [p.eta() for p in e.bsm_particles],
+            "LLP_phi": [p.phi() for p in e.bsm_particles],
             "LLP_pt": [p.pt() / 1000.0 for p in e.bsm_particles],
             "LLP_pdgid": [p.absPdgId() for p in e.bsm_particles],
             "LLP_Lz": [
@@ -288,32 +289,34 @@ def fetch_training_data(
     return run_query(ds_name, query, config)
 
 
-def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
+def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Record:
     """
     Convert raw data dictionary to training data format.
 
     Args:
         raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
+        mc (bool): If True, include LLP info.
 
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
     """
     # Build vectors for all the delta r calculations we are going to have to do.
-    llps = ak.zip(
-        {
-            "eta": data.LLP_eta,  # type: ignore
-            "phi": data.LLP_phi,  # type: ignore
-            "pt": data.LLP_pt,  # type: ignore
-            "Lz": data.LLP_Lz,  # type: ignore
-            "Lxy": data.LLP_Lxy,  # type: ignore
-        },
-        with_name="Momentum3D",
-    )
+    if mc:
+        llps = ak.zip(
+            {
+                "eta": data["LLP_eta"],
+                "phi": data["LLP_phi"],
+                "pt": data["LLP_pt"],
+                "Lz": data["LLP_Lz"],
+                "Lxy": data["LLP_Lxy"],
+            },
+            with_name="Momentum3D",
+        )
     jets = ak.zip(
         {
-            "pt": data.jet_pt,  # type: ignore
-            "eta": data.jet_eta,  # type: ignore
-            "phi": data.jet_phi,  # type: ignore
+            "pt": data["jet_pt"],
+            "eta": data["jet_eta"],
+            "phi": data["jet_phi"],
         },
         with_name="Momentum3D",
     )
@@ -343,7 +346,6 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
             "t0": data.MSeg_t0,  # type: ignore
             "chiSquared": data.MSeg_chiSquared,  # type: ignore
         },
-        # We need to use the x, y, and z!!
         with_name="Vector3D",
     )
     msegs_p = ak.zip(
@@ -373,39 +375,39 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
     )
 
     # Figure out what jets are close to the LLPs.
-    llp_jet_pairs = ak.cartesian(
-        {
-            "jet": jets,
-            "llp": llps,
-        },
-        axis=1,
-        nested=True,
-    )
-    delta_r_jet_llp = llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp)
-    jets_near_llps_mask = ak.all(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
-    jets = jets[jets_near_llps_mask]
-    clusters = clusters[jets_near_llps_mask]
-    if ak.count(jets) == 0:
-        raise ValueError("No jets found near LLPs.")
+    if mc:
+        llp_jet_pairs = ak.cartesian(
+            {
+                "jet": jets,
+                "llp": llps,
+            },
+            axis=1,
+            nested=True,
+        )
+        delta_r_jet_llp = llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp)
+        jets_near_llps_mask = ak.all(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
+        jets = jets[jets_near_llps_mask]
+        clusters = clusters[jets_near_llps_mask]
+        if ak.count(jets) == 0:
+            raise ValueError("No jets found near LLPs.")
 
-    # And for those jets, get a match LLP. Easiest is to re-run the matching.
-    llp_jet_pairs = ak.cartesian(
-        {
-            "jet": jets,
-            "llp": llps,
-        },
-        axis=1,
-        nested=True,
-    )
-    llp_match_jet_index = ak.argmin(
-        llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
-    )
-    llp_match_jet = llps[llp_match_jet_index]
+        # And for those jets, get a match LLP. Easiest is to re-run the matching.
+        llp_jet_pairs = ak.cartesian(
+            {
+                "jet": jets,
+                "llp": llps,
+            },
+            axis=1,
+            nested=True,
+        )
+        llp_match_jet_index = ak.argmin(
+            llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
+        )
+        llp_match_jet = llps[llp_match_jet_index]
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
     delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
-
     nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
 
     # Compute the delta phi between each jet and msegs in the same event
@@ -426,11 +428,9 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
         {
             "runNumber": data.runNumber,  # type: ignore
             "eventNumber": data.eventNumber,  # type: ignore
-            "mcEventWeight": data.mcEventWeight,  # type: ignore
             "pt": jets.pt,
             "eta": jets.eta,
             "phi": jets.phi,
-            "llp": llp_match_jet,
             "tracks": nearby_tracks,
             "clusters": clusters,
             "msegs": ak.zip(
@@ -443,6 +443,14 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
                     "chiSquared": nearby_msegs.x.chiSquared,
                 },
             ),
+            **(
+                {
+                    "llp": llp_match_jet,
+                    "mcEventWeight": data.mcEventWeight,  # type: ignore
+                }
+                if mc
+                else {}
+            ),
         },
         with_name="Momentum3D",
     )
@@ -452,7 +460,7 @@ def convert_to_training_data(data: Dict[str, ak.Array]) -> ak.Record:
 
 def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     raw_data = fetch_training_data(ds_name, config)
-    result_list = convert_to_training_data(raw_data)
+    result_list = convert_to_training_data(raw_data, mc=config.mc)
 
     # Finally, write it out into a training file.
     ak.to_parquet(

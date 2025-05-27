@@ -49,6 +49,11 @@ def main(
         "-o",
         help="Output file path (default: training.parquet)",
     ),
+    mc: bool = typer.Option(
+        False,
+        "--mc",
+        help="Include LLP MC truth info (default: False)",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -60,7 +65,7 @@ def main(
     )
 
     run_config = RunConfig(
-        ignore_cache=ignore_cache, run_locally=local, output_path=output
+        ignore_cache=ignore_cache, run_locally=local, output_path=output, mc=mc
     )
     fetch_training_data_to_file(dataset, run_config)
 
