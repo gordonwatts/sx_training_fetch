@@ -444,20 +444,23 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
     per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
 
+    per_jet_training_data_dict["msegs"] = ak.flatten(
+        ak.zip(
+            {
+                "etaPos": nearby_msegs.x.eta,
+                "phiPos": nearby_msegs.x.phi,
+                "etaDir": nearby_msegs.p.eta,
+                "phiDir": nearby_msegs.p.phi,
+                "t0": nearby_msegs.x.t0,
+                "chiSquared": nearby_msegs.x.chiSquared,
+            }
+        ),
+        axis=1,
+    )
+
     # Finally, build the data we will write out!
     # training_data = ak.Record(
     #     {
-    #         "clusters": clusters,
-    #         "msegs": ak.zip(
-    #             {
-    #                 "etaPos": nearby_msegs.x.eta,
-    #                 "phiPos": nearby_msegs.x.phi,
-    #                 "etaDir": nearby_msegs.p.eta,
-    #                 "phiDir": nearby_msegs.p.phi,
-    #                 "t0": nearby_msegs.x.t0,
-    #                 "chiSquared": nearby_msegs.x.chiSquared,
-    #             },
-    #         ),
     #         **(
     #             {
     #                 "llp": llp_match_jet,
