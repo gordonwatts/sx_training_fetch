@@ -21,7 +21,11 @@ from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
-from calratio_training_data.constants import JET_TRACK_DELTA_R, LLP_JET_DELTA_R
+from calratio_training_data.constants import (
+    JET_TRACK_DELTA_R,
+    LLP_JET_DELTA_R,
+    JET_MSEG_DELTA_PHI,
+)
 
 from .cpp_xaod_utils import (
     add_jet_selection_tool,
@@ -427,7 +431,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         nested=True,
     )
     delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
-    mseg_mask = delta_phi < JET_TRACK_DELTA_R
+    mseg_mask = delta_phi < JET_MSEG_DELTA_PHI
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
     # Fill this dict with the leaves we want in the training data.
