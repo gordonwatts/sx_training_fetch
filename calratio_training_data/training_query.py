@@ -430,19 +430,19 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
 
     # Build the final per-jet training data. This requires reshaping and broadcasting
     # a number of arrays we have.
-    # per_jet_training_data_dict["runNumber"] = ak.flatten(
-    #     ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
-    # )
-    # per_jet_training_data_dict["eventNumber"] = ak.flatten(
-    #     ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
-    # )
+    per_jet_training_data_dict["runNumber"] = ak.flatten(
+        ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
+    )
+    per_jet_training_data_dict["eventNumber"] = ak.flatten(
+        ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
+    )
 
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
 
     per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
-    # per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
+    per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
 
     # Finally, build the data we will write out!
     # training_data = ak.Record(
