@@ -300,29 +300,6 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
     """
-    # Fill this dict with the leaves we want in the training data.
-    per_jet_training_data_dict = {}
-
-    # Build vectors for all the delta r calculations we are going to have to do.
-    if mc:
-        llps = ak.zip(
-            {
-                "eta": data["LLP_eta"],
-                "phi": data["LLP_phi"],
-                "pt": data["LLP_pt"],
-                "Lz": data["LLP_Lz"],
-                "Lxy": data["LLP_Lxy"],
-            },
-            with_name="Momentum3D",
-        )
-
-    # Jets
-    #   Like most things, these need to be unrolled so we end up with a per-jet array, not
-    #   per event.
-    per_jet_training_data_dict["pt"] = ak.flatten(data["jet_pt"], axis=1)
-    per_jet_training_data_dict["eta"] = ak.flatten(data["jet_eta"], axis=1)
-    per_jet_training_data_dict["phi"] = ak.flatten(data["jet_phi"], axis=1)
-
     jets = ak.zip(
         {
             "pt": data["jet_pt"],
@@ -331,6 +308,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         },
         with_name="Momentum3D",
     )
+
     tracks = ak.zip(
         {
             "eta": data.track_eta,  # type: ignore
@@ -386,6 +364,19 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     )
 
     # Figure out what jets are close to the LLPs.
+    # Build vectors for all the delta r calculations we are going to have to do.
+    if mc:
+        llps = ak.zip(
+            {
+                "eta": data["LLP_eta"],
+                "phi": data["LLP_phi"],
+                "pt": data["LLP_pt"],
+                "Lz": data["LLP_Lz"],
+                "Lxy": data["LLP_Lxy"],
+            },
+            with_name="Momentum3D",
+        )
+
     if mc:
         llp_jet_pairs = ak.cartesian(
             {
@@ -433,6 +424,25 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
     mseg_mask = delta_phi < JET_TRACK_DELTA_R
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
+
+    # Fill this dict with the leaves we want in the training data.
+    per_jet_training_data_dict = {}
+
+    # Jets
+    #   Like most things, these need to be unrolled so we end up with a per-jet array, not
+    #   per event.
+    per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
+    per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
+    per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
+
+    # Some of the per-event variables (one per event) - need to fill them out
+    # to match the per-jet shapes.
+    per_jet_training_data_dict["runNumber"] = ak.flatten(
+        ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
+    )
+    per_jet_training_data_dict["eventNumber"] = ak.flatten(
+        ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
+    )
 
     # Finally, build the data we will write out!
     # training_data = ak.Record(
