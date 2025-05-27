@@ -289,7 +289,7 @@ def fetch_training_data(
     return run_query(ds_name, query, config)
 
 
-def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Record:
+def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
@@ -458,20 +458,11 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         axis=1,
     )
 
+    if mc:
+        per_jet_training_data_dict["llp"] = llp_match_jet
+        per_jet_training_data_dict["mcEventWeight"] = data.mcEventWeight  # type: ignore
+
     # Finally, build the data we will write out!
-    # training_data = ak.Record(
-    #     {
-    #         **(
-    #             {
-    #                 "llp": llp_match_jet,
-    #                 "mcEventWeight": data.mcEventWeight,  # type: ignore
-    #             }
-    #             if mc
-    #             else {}
-    #         ),
-    #     },
-    #     with_name="Momentum3D",
-    # )
     training_data = ak.zip(
         per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
     )
