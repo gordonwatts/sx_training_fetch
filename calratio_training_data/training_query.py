@@ -300,6 +300,9 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
     """
+    # Fill this dict with the leaves we want in the training data.
+    per_jet_training_data_dict = {}
+
     # Build vectors for all the delta r calculations we are going to have to do.
     if mc:
         llps = ak.zip(
@@ -312,6 +315,14 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             },
             with_name="Momentum3D",
         )
+
+    # Jets
+    #   Like most things, these need to be unrolled so we end up with a per-jet array, not
+    #   per event.
+    per_jet_training_data_dict["pt"] = ak.flatten(data["jet_pt"], axis=1)
+    per_jet_training_data_dict["eta"] = ak.flatten(data["jet_eta"], axis=1)
+    per_jet_training_data_dict["phi"] = ak.flatten(data["jet_phi"], axis=1)
+
     jets = ak.zip(
         {
             "pt": data["jet_pt"],
@@ -424,36 +435,37 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
     # Finally, build the data we will write out!
-    training_data = ak.Record(
-        {
-            "runNumber": data.runNumber,  # type: ignore
-            "eventNumber": data.eventNumber,  # type: ignore
-            "pt": jets.pt,
-            "eta": jets.eta,
-            "phi": jets.phi,
-            "tracks": nearby_tracks,
-            "clusters": clusters,
-            "msegs": ak.zip(
-                {
-                    "etaPos": nearby_msegs.x.eta,
-                    "phiPos": nearby_msegs.x.phi,
-                    "etaDir": nearby_msegs.p.eta,
-                    "phiDir": nearby_msegs.p.phi,
-                    "t0": nearby_msegs.x.t0,
-                    "chiSquared": nearby_msegs.x.chiSquared,
-                },
-            ),
-            **(
-                {
-                    "llp": llp_match_jet,
-                    "mcEventWeight": data.mcEventWeight,  # type: ignore
-                }
-                if mc
-                else {}
-            ),
-        },
-        with_name="Momentum3D",
-    )
+    # training_data = ak.Record(
+    #     {
+    #         "runNumber": data.runNumber,  # type: ignore
+    #         "eventNumber": data.eventNumber,  # type: ignore
+    #         "pt": jets.pt,
+    #         "eta": jets.eta,
+    #         "phi": jets.phi,
+    #         "tracks": nearby_tracks,
+    #         "clusters": clusters,
+    #         "msegs": ak.zip(
+    #             {
+    #                 "etaPos": nearby_msegs.x.eta,
+    #                 "phiPos": nearby_msegs.x.phi,
+    #                 "etaDir": nearby_msegs.p.eta,
+    #                 "phiDir": nearby_msegs.p.phi,
+    #                 "t0": nearby_msegs.x.t0,
+    #                 "chiSquared": nearby_msegs.x.chiSquared,
+    #             },
+    #         ),
+    #         **(
+    #             {
+    #                 "llp": llp_match_jet,
+    #                 "mcEventWeight": data.mcEventWeight,  # type: ignore
+    #             }
+    #             if mc
+    #             else {}
+    #         ),
+    #     },
+    #     with_name="Momentum3D",
+    # )
+    training_data = ak.Record(per_jet_training_data_dict, with_name="Momentum3D")
 
     return training_data
 
