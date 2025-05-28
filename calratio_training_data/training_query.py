@@ -21,7 +21,11 @@ from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
-from calratio_training_data.constants import JET_TRACK_DELTA_R, LLP_JET_DELTA_R
+from calratio_training_data.constants import (
+    JET_TRACK_DELTA_R,
+    LLP_JET_DELTA_R,
+    JET_MSEG_DELTA_PHI,
+)
 
 from .cpp_xaod_utils import (
     add_jet_selection_tool,
@@ -289,7 +293,7 @@ def fetch_training_data(
     return run_query(ds_name, query, config)
 
 
-def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Record:
+def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
@@ -300,18 +304,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
     """
-    # Build vectors for all the delta r calculations we are going to have to do.
-    if mc:
-        llps = ak.zip(
-            {
-                "eta": data["LLP_eta"],
-                "phi": data["LLP_phi"],
-                "pt": data["LLP_pt"],
-                "Lz": data["LLP_Lz"],
-                "Lxy": data["LLP_Lxy"],
-            },
-            with_name="Momentum3D",
-        )
+    # Build the constructs we can use to do matching (associated them with 3D vectors!).
     jets = ak.zip(
         {
             "pt": data["jet_pt"],
@@ -320,6 +313,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         },
         with_name="Momentum3D",
     )
+
     tracks = ak.zip(
         {
             "eta": data.track_eta,  # type: ignore
@@ -338,6 +332,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         },
         with_name="Momentum3D",
     )
+
     msegs = ak.zip(
         {
             "x": data.MSeg_x,  # type: ignore
@@ -348,6 +343,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         },
         with_name="Vector3D",
     )
+
     msegs_p = ak.zip(
         {
             "px": data.MSeg_px,  # type: ignore
@@ -356,6 +352,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         },
         with_name="Momentum3D",
     )
+
     clusters = ak.zip(
         {
             "eta": data.clus_eta,  # type: ignore
@@ -374,8 +371,19 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         with_name="Momentum3D",
     )
 
-    # Figure out what jets are close to the LLPs.
+    # If we are doing signal, then we only want LLP's that are close to jets.
     if mc:
+        llps = ak.zip(
+            {
+                "eta": data["LLP_eta"],
+                "phi": data["LLP_phi"],
+                "pt": data["LLP_pt"],
+                "Lz": data["LLP_Lz"],
+                "Lxy": data["LLP_Lxy"],
+            },
+            with_name="Momentum3D",
+        )
+
         llp_jet_pairs = ak.cartesian(
             {
                 "jet": jets,
@@ -385,7 +393,10 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             nested=True,
         )
         delta_r_jet_llp = llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp)
-        jets_near_llps_mask = ak.all(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
+        jets_near_llps_mask = ak.any(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
+
+        # Window the jets (and clusters, which come pre-associated with the jets) to
+        # only those near LLPs.
         jets = jets[jets_near_llps_mask]
         clusters = clusters[jets_near_llps_mask]
         if ak.count(jets) == 0:
@@ -410,7 +421,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
     nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
 
-    # Compute the delta phi between each jet and msegs in the same event
+    # delta-phi matching for muon segments.
     jet_mseg_pairs = ak.cartesian(
         {
             "jet": jets,
@@ -420,39 +431,54 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         nested=True,
     )
     delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
-    mseg_mask = delta_phi < JET_TRACK_DELTA_R
+    mseg_mask = delta_phi < JET_MSEG_DELTA_PHI
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
+    # Fill this dict with the leaves we want in the training data.
+    per_jet_training_data_dict = {}
+
+    # Build the final per-jet training data. This requires reshaping and broadcasting
+    # a number of arrays we have.
+    per_jet_training_data_dict["runNumber"] = ak.flatten(
+        ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
+    )
+    per_jet_training_data_dict["eventNumber"] = ak.flatten(
+        ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
+    )
+    if mc:
+        per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
+            ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
+        )
+
+    # The top level jet information.
+    per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
+    per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
+    per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
+
+    # Tracks, clusters, and muon segments.
+    per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
+    per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
+    per_jet_training_data_dict["msegs"] = ak.flatten(
+        ak.zip(
+            {
+                "etaPos": nearby_msegs.x.eta,
+                "phiPos": nearby_msegs.x.phi,
+                "etaDir": nearby_msegs.p.eta,
+                "phiDir": nearby_msegs.p.phi,
+                "t0": nearby_msegs.x.t0,
+                "chiSquared": nearby_msegs.x.chiSquared,
+            }
+        ),
+        axis=1,
+    )
+
+    # And LLP's if we are doing MC.
+    if mc:
+        per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
+
     # Finally, build the data we will write out!
-    training_data = ak.Record(
-        {
-            "runNumber": data.runNumber,  # type: ignore
-            "eventNumber": data.eventNumber,  # type: ignore
-            "pt": jets.pt,
-            "eta": jets.eta,
-            "phi": jets.phi,
-            "tracks": nearby_tracks,
-            "clusters": clusters,
-            "msegs": ak.zip(
-                {
-                    "etaPos": nearby_msegs.x.eta,
-                    "phiPos": nearby_msegs.x.phi,
-                    "etaDir": nearby_msegs.p.eta,
-                    "phiDir": nearby_msegs.p.phi,
-                    "t0": nearby_msegs.x.t0,
-                    "chiSquared": nearby_msegs.x.chiSquared,
-                },
-            ),
-            **(
-                {
-                    "llp": llp_match_jet,
-                    "mcEventWeight": data.mcEventWeight,  # type: ignore
-                }
-                if mc
-                else {}
-            ),
-        },
-        with_name="Momentum3D",
+    training_data = ak.zip(
+        per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
     )
 
     return training_data
