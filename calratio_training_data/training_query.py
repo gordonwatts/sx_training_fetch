@@ -490,7 +490,7 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
     # Finally, write it out into a training file.
     ak.to_parquet(
-        result_list, config.output_path, compression="GZIP", compression_level=9
+        result_list, config.output_path, compression="ZSTD", compression_level=-7
     )
 
 
