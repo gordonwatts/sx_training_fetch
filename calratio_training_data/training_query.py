@@ -392,7 +392,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         # Next make sure the LLP's decay in the calorimeter region.
         # if they are in the central region, then Lxy must be between LLP_Lxy_min and LLP_Lxy_max
         # if they are in the end-cap region, then Lz must be between LLP_Lz_min and LLP_Lz_max
-        llps = llps[
+        llps = llps[  # type: ignore
             (abs(llps.eta) < LLP_central_eta_cut)
             & (llps.Lxy > LLP_Lxy_min)
             & (llps.Lxy < LLP_Lxy_max)
@@ -498,7 +498,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
     )
 
-    return training_data
+    return training_data  # type: ignore
 
 
 def fetch_training_data_to_file(ds_name: str, config: RunConfig):
