@@ -20,6 +20,7 @@ dependencies = [
     "func_adl_servicex_xaodr25",
     "servicex-analysis-utils",
 ]
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = ["black", "typer", "pytest", "pytest-mock"]
