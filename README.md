@@ -2,6 +2,16 @@
 
 Code to fetch training datasets from ATLAS derivations for the Run 3 per-jet CalRatio NN. While designed to run against LLP1, really, it will work on anything that has the data.
 
+## Contributing
+
+The main home for this repo is on [GitHub](https://github.com/gordonwatts/sx_training_fetch). Over there please feel free to:
+
+* [Open an issue](https://github.com/gordonwatts/sx_training_fetch/issues)
+* [Submit a PR](https://github.com/gordonwatts/sx_training_fetch/pulls)
+* [Examine the roadmap](https://github.com/users/gordonwatts/projects/3)
+
+Any other mirrors are for archival purposes only and their issues and MR's aren't frequently checked!
+
 ## Installation
 
 What you'll need on your system:
