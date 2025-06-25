@@ -25,6 +25,11 @@ from calratio_training_data.constants import (
     JET_TRACK_DELTA_R,
     LLP_JET_DELTA_R,
     JET_MSEG_DELTA_PHI,
+    LLP_central_eta_cut,
+    LLP_Lxy_min,
+    LLP_Lxy_max,
+    LLP_Lz_min,
+    LLP_Lz_max,
 )
 
 from .cpp_xaod_utils import (
@@ -127,7 +132,7 @@ def build_preselection():
     return query_preselection
 
 
-def fetch_training_data(
+def fetch_raw_training_data(
     ds_name: str, config: RunConfig = RunConfig(ignore_cache=False, run_locally=False)
 ):
     """
@@ -384,6 +389,18 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             with_name="Momentum3D",
         )
 
+        # Next make sure the LLP's decay in the calorimeter region.
+        # if they are in the central region, then Lxy must be between LLP_Lxy_min and LLP_Lxy_max
+        # if they are in the end-cap region, then Lz must be between LLP_Lz_min and LLP_Lz_max
+        llps = llps[  # type: ignore
+            (abs(llps.eta) < LLP_central_eta_cut)
+            & (llps.Lxy > LLP_Lxy_min)
+            & (llps.Lxy < LLP_Lxy_max)
+            | (abs(llps.eta) >= LLP_central_eta_cut)
+            & (abs(llps.Lz) > LLP_Lz_min)
+            & (abs(llps.Lz) < LLP_Lz_max)
+        ]
+
         llp_jet_pairs = ak.cartesian(
             {
                 "jet": jets,
@@ -481,17 +498,22 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
     )
 
-    return training_data
+    return training_data  # type: ignore
 
 
 def fetch_training_data_to_file(ds_name: str, config: RunConfig):
-    raw_data = fetch_training_data(ds_name, config)
-    result_list = convert_to_training_data(raw_data, mc=config.mc)
+    result_list = fetch_training_data(ds_name, config)
 
     # Finally, write it out into a training file.
     ak.to_parquet(
         result_list, config.output_path, compression="ZSTD", compression_level=-7
     )
+
+
+def fetch_training_data(ds_name, config: RunConfig):
+    raw_data = fetch_raw_training_data(ds_name, config)
+    result_list = convert_to_training_data(raw_data, mc=config.mc)
+    return result_list
 
 
 def run_query(
