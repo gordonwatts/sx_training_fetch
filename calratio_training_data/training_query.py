@@ -4,6 +4,7 @@ from math import sqrt
 from typing import Dict
 
 import awkward as ak
+import numpy as np
 import servicex_local as sx_local
 import vector
 from func_adl import ObjectStream
@@ -22,14 +23,14 @@ from servicex import deliver
 from servicex_analysis_utils import to_awk
 
 from calratio_training_data.constants import (
+    JET_MSEG_DELTA_PHI,
     JET_TRACK_DELTA_R,
     LLP_JET_DELTA_R,
-    JET_MSEG_DELTA_PHI,
     LLP_central_eta_cut,
-    LLP_Lxy_min,
     LLP_Lxy_max,
-    LLP_Lz_min,
+    LLP_Lxy_min,
     LLP_Lz_max,
+    LLP_Lz_min,
 )
 
 from .cpp_xaod_utils import (
@@ -310,83 +311,101 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         ak.Record: The processed training data, suitable for writing to parquet.
     """
     # Build the constructs we can use to do matching (associated them with 3D vectors!).
-    jets = ak.zip(
-        {
-            "pt": data["jet_pt"],
-            "eta": data["jet_eta"],
-            "phi": data["jet_phi"],
-        },
-        with_name="Momentum3D",
+    jets = ak.values_astype(
+        ak.zip(
+            {
+                "pt": data["jet_pt"],
+                "eta": data["jet_eta"],
+                "phi": data["jet_phi"],
+            },
+            with_name="Momentum3D",
+        ),
+        np.float32,
     )
 
-    tracks = ak.zip(
-        {
-            "eta": data.track_eta,  # type: ignore
-            "phi": data.track_phi,  # type: ignore
-            "pt": data.track_pT,  # type: ignore
-            "vertex_nParticles": data.track_vertex_nParticles,  # type: ignore
-            "d0": data.track_d0,  # type: ignore
-            "z0": data.track_z0,  # type: ignore
-            "chiSquared": data.track_chiSquared,  # type: ignore
-            "PixelShared": data.track_PixelShared,  # type: ignore
-            "SCTShared": data.track_SCTShared,  # type: ignore
-            "PixelHoles": data.track_PixelHoles,  # type: ignore
-            "SCTHoles": data.track_SCTHoles,  # type: ignore
-            "PixelHits": data.track_PixelHits,  # type: ignore
-            "SCTHits": data.track_SCTHits,  # type: ignore
-        },
-        with_name="Momentum3D",
+    tracks = ak.values_astype(
+        ak.zip(
+            {
+                "eta": data.track_eta,  # type: ignore
+                "phi": data.track_phi,  # type: ignore
+                "pt": data.track_pT,  # type: ignore
+                "vertex_nParticles": data.track_vertex_nParticles,  # type: ignore
+                "d0": data.track_d0,  # type: ignore
+                "z0": data.track_z0,  # type: ignore
+                "chiSquared": data.track_chiSquared,  # type: ignore
+                "PixelShared": data.track_PixelShared,  # type: ignore
+                "SCTShared": data.track_SCTShared,  # type: ignore
+                "PixelHoles": data.track_PixelHoles,  # type: ignore
+                "SCTHoles": data.track_SCTHoles,  # type: ignore
+                "PixelHits": data.track_PixelHits,  # type: ignore
+                "SCTHits": data.track_SCTHits,  # type: ignore
+            },
+            with_name="Momentum3D",
+        ),
+        np.float32,
     )
 
-    msegs = ak.zip(
-        {
-            "x": data.MSeg_x,  # type: ignore
-            "y": data.MSeg_y,  # type: ignore
-            "z": data.MSeg_z,  # type: ignore
-            "t0": data.MSeg_t0,  # type: ignore
-            "chiSquared": data.MSeg_chiSquared,  # type: ignore
-        },
-        with_name="Vector3D",
+    msegs = ak.values_astype(
+        ak.zip(
+            {
+                "x": data.MSeg_x,  # type: ignore
+                "y": data.MSeg_y,  # type: ignore
+                "z": data.MSeg_z,  # type: ignore
+                "t0": data.MSeg_t0,  # type: ignore
+                "chiSquared": data.MSeg_chiSquared,  # type: ignore
+            },
+            with_name="Vector3D",
+        ),
+        np.float32,
     )
 
-    msegs_p = ak.zip(
-        {
-            "px": data.MSeg_px,  # type: ignore
-            "py": data.MSeg_py,  # type: ignore
-            "pz": data.MSeg_pz,  # type: ignore
-        },
-        with_name="Momentum3D",
+    msegs_p = ak.values_astype(
+        ak.zip(
+            {
+                "px": data.MSeg_px,  # type: ignore
+                "py": data.MSeg_py,  # type: ignore
+                "pz": data.MSeg_pz,  # type: ignore
+            },
+            with_name="Momentum3D",
+        ),
+        np.float32,
     )
 
-    clusters = ak.zip(
-        {
-            "eta": data.clus_eta,  # type: ignore
-            "phi": data.clus_phi,  # type: ignore
-            "pt": data.clus_pt,  # type: ignore
-            "l1hcal": data.clus_l1hcal,  # type: ignore
-            "l2hcal": data.clus_l2hcal,  # type: ignore
-            "l3hcal": data.clus_l3hcal,  # type: ignore
-            "l4hcal": data.clus_l4hcal,  # type: ignore
-            "l1ecal": data.clus_l1ecal,  # type: ignore
-            "l2ecal": data.clus_l2ecal,  # type: ignore
-            "l3ecal": data.clus_l3ecal,  # type: ignore
-            "l4ecal": data.clus_l4ecal,  # type: ignore
-            "time": data.clus_time,  # type: ignore
-        },
-        with_name="Momentum3D",
+    clusters = ak.values_astype(
+        ak.zip(
+            {
+                "eta": data.clus_eta,  # type: ignore
+                "phi": data.clus_phi,  # type: ignore
+                "pt": data.clus_pt,  # type: ignore
+                "l1hcal": data.clus_l1hcal,  # type: ignore
+                "l2hcal": data.clus_l2hcal,  # type: ignore
+                "l3hcal": data.clus_l3hcal,  # type: ignore
+                "l4hcal": data.clus_l4hcal,  # type: ignore
+                "l1ecal": data.clus_l1ecal,  # type: ignore
+                "l2ecal": data.clus_l2ecal,  # type: ignore
+                "l3ecal": data.clus_l3ecal,  # type: ignore
+                "l4ecal": data.clus_l4ecal,  # type: ignore
+                "time": data.clus_time,  # type: ignore
+            },
+            with_name="Momentum3D",
+        ),
+        np.float32,
     )
 
     # If we are doing signal, then we only want LLP's that are close to jets.
     if mc:
-        llps = ak.zip(
-            {
-                "eta": data["LLP_eta"],
-                "phi": data["LLP_phi"],
-                "pt": data["LLP_pt"],
-                "Lz": data["LLP_Lz"],
-                "Lxy": data["LLP_Lxy"],
-            },
-            with_name="Momentum3D",
+        llps = ak.values_astype(
+            ak.zip(
+                {
+                    "eta": data["LLP_eta"],
+                    "phi": data["LLP_phi"],
+                    "pt": data["LLP_pt"],
+                    "Lz": data["LLP_Lz"],
+                    "Lxy": data["LLP_Lxy"],
+                },
+                with_name="Momentum3D",
+            ),
+            np.float32,
         )
 
         # Next make sure the LLP's decay in the calorimeter region.
