@@ -39,7 +39,6 @@ from .cpp_xaod_utils import (
     jet_clean_llp,
     track_summary_value,
 )
-from .sx_utils import build_sx_spec
 
 vector.register_awkward()
 
