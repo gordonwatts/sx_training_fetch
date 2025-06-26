@@ -39,7 +39,6 @@ from .cpp_xaod_utils import (
     jet_clean_llp,
     track_summary_value,
 )
-from .sx_utils import build_sx_spec
 
 vector.register_awkward()
 
@@ -51,6 +50,7 @@ class RunConfig:
     run_locally: bool
     output_path: str = "training.parquet"
     mc: bool = False
+    sx_backend: str = "af.uchicago"
 
 
 @dataclass
@@ -541,7 +541,11 @@ def run_query(
     config: RunConfig = RunConfig(ignore_cache=False, run_locally=False),
 ) -> Dict[str, ak.Array]:
     # Build the ServiceX spec and run it.
-    spec, backend_name, adaptor = build_sx_spec(query, ds_name, config.run_locally)
+    from .sx_utils import build_sx_spec
+
+    spec, backend_name, adaptor = build_sx_spec(
+        query, ds_name, config.run_locally, config.sx_backend
+    )
     if config.run_locally or backend_name == "local-backend":
         sx_result = sx_local.deliver(
             spec, adaptor=adaptor, ignore_local_cache=config.ignore_cache

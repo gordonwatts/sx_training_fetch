@@ -41,18 +41,23 @@ def main(
     local: bool = typer.Option(
         False,
         "--local",
-        help="Run ServiceX locally, fail if not possible (requires docker)",
+        help="Run ServiceX locally (requires docker)",
     ),
     output: str = typer.Option(
         "training.parquet",
         "--output",
         "-o",
-        help="Output file path (default: training.parquet)",
+        help="Output file path",
     ),
     mc: bool = typer.Option(
         False,
         "--mc",
-        help="Include LLP MC truth info (default: False)",
+        help="Include LLP MC truth info",
+    ),
+    sx_backend: str = typer.Option(
+        "servicex",
+        "--sx-backend",
+        help="ServiceX backend name",
     ),
 ):
     """
@@ -65,7 +70,11 @@ def main(
     )
 
     run_config = RunConfig(
-        ignore_cache=ignore_cache, run_locally=local, output_path=output, mc=mc
+        ignore_cache=ignore_cache,
+        run_locally=local,
+        output_path=output,
+        mc=mc,
+        sx_backend=sx_backend,
     )
     fetch_training_data_to_file(dataset, run_config)
 
