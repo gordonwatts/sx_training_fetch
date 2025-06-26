@@ -118,7 +118,7 @@ def build_preselection():
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
             bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles").Where(
-                lambda truth_p: abs(truth_p.pdgId()) == 35
+                lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
             ),
         )
     )
