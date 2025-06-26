@@ -54,6 +54,11 @@ def main(
         "--mc",
         help="Include LLP MC truth info (default: False)",
     ),
+    sx_backend: str = typer.Option(
+        "servicex",
+        "--sx-backend",
+        help="ServiceX backend name (default: servicex)",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -65,7 +70,11 @@ def main(
     )
 
     run_config = RunConfig(
-        ignore_cache=ignore_cache, run_locally=local, output_path=output, mc=mc
+        ignore_cache=ignore_cache,
+        run_locally=local,
+        output_path=output,
+        mc=mc,
+        sx_backend=sx_backend,
     )
     fetch_training_data_to_file(dataset, run_config)
 
