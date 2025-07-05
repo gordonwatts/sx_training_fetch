@@ -66,7 +66,7 @@ def find_dataset(
 
     Args:
         ds_name (str): The name of the dataset to be fetched.
-        prefer_local (boo): If we can construct the url in a way that will let us
+        prefer_local (bool): If we can construct the url in a way that will let us
             run locally, then do it. The returned location options must still
             be checked, however. And even if this can't run locally (e.g. rucio
             dataset), no error will be produced.
