@@ -18,7 +18,7 @@ class SXLocationOptions(Enum):
 
 
 def build_sx_spec(
-    query, ds_name: str, prefer_local: bool = False, backend_name: str = "servicex"
+    query, ds_name: str, prefer_local: bool = False, backend_name: str = "af.uchicago"
 ):
     """Build a ServiceX spec from the given query and dataset."""
 
