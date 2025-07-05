@@ -21,7 +21,7 @@ def build_sx_spec(
     query,
     ds_name: str,
     prefer_local: bool = False,
-    backend_name: str = "af.uchicago",
+    backend_name: str = "servicex",
 ):
     """Build a ServiceX spec from the given query and dataset."""
 

@@ -50,7 +50,7 @@ class RunConfig:
     run_locally: bool
     output_path: str = "training.parquet"
     mc: bool = False
-    sx_backend: str = "af.uchicago"
+    sx_backend: str = "servicex"
 
 
 @dataclass
