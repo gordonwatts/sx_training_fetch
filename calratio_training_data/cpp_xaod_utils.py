@@ -43,7 +43,7 @@ def track_summary_value_callback(
             "result": "result",
             "include_files": [],
             "arguments": ["trk", "value_selector"],
-            "return_type": "float",
+            "return_type": "int",
         }
     )
     new_s = add_enum_info(new_s, "SummaryType")
