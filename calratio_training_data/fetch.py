@@ -52,7 +52,8 @@ def main(
     mc: bool = typer.Option(
         False,
         "--mc",
-        help="Include LLP MC truth info",
+        help="Include LLP MC truth info (will crash if run on file without MC "
+        "info!)",
     ),
     sx_backend: str = typer.Option(
         "servicex",
