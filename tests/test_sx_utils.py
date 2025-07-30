@@ -248,7 +248,7 @@ def test_build_sx_spec_prefer_local_remote_forced(mocker):
         ),
     )
     spec, backend_name, adaptor = build_sx_spec(
-        "my_query", "a_ds", prefer_local=True
+        "my_query", "a_ds", prefer_local=True, backend_name="fork.now"
     )
 
-    assert backend_name == "af.uchicago"
+    assert backend_name == "fork.now"
