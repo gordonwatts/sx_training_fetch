@@ -278,21 +278,28 @@ def fetch_raw_training_data(
             "clus_time": [
                 c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
             ],
-            "LLP_eta": [p.eta() for p in e.bsm_particles],
-            "LLP_phi": [p.phi() for p in e.bsm_particles],
-            "LLP_pt": [p.pt() / 1000.0 for p in e.bsm_particles],
-            "LLP_pdgid": [p.absPdgId() for p in e.bsm_particles],
-            "LLP_Lz": [
-                p.decayVtx().z() if p.hasDecayVtx() else 0.0 for p in e.bsm_particles
-            ],
-            "LLP_Lxy": [
-                (
-                    sqrt(p.decayVtx().x() ** 2 + p.decayVtx().y() ** 2)
-                    if p.hasDecayVtx()
-                    else 0.0
-                )
-                for p in e.bsm_particles
-            ],
+            **(
+                {
+                    "LLP_eta": [p.eta() for p in e.bsm_particles],
+                    "LLP_phi": [p.phi() for p in e.bsm_particles],
+                    "LLP_pt": [p.pt() / 1000.0 for p in e.bsm_particles],
+                    "LLP_pdgid": [p.absPdgId() for p in e.bsm_particles],
+                    "LLP_Lz": [
+                        p.decayVtx().z() if p.hasDecayVtx() else 0.0
+                        for p in e.bsm_particles
+                    ],
+                    "LLP_Lxy": [
+                        (
+                            sqrt(p.decayVtx().x() ** 2 + p.decayVtx().y() ** 2)
+                            if p.hasDecayVtx()
+                            else 0.0
+                        )
+                        for p in e.bsm_particles
+                    ],
+                }
+                if config.mc
+                else {}
+            ),
         }
     )
 
