@@ -1,10 +1,12 @@
 import logging
 from dataclasses import dataclass
 from math import sqrt
+from pathlib import Path
 from typing import Dict
 
 import awkward as ak
 import numpy as np
+import h5py
 import servicex_local as sx_local
 import vector
 from func_adl import ObjectStream
@@ -48,7 +50,7 @@ vector.register_awkward()
 class RunConfig:
     ignore_cache: bool
     run_locally: bool
-    output_path: str = "training.parquet"
+    output_path: str = "training.hdf5"
     mc: bool = False
     sx_backend: str = "servicex"
 
@@ -315,7 +317,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         mc (bool): If True, include LLP info.
 
     Returns:
-        ak.Record: The processed training data, suitable for writing to parquet.
+        ak.Record: The processed training data, suitable for writing to parquet or hdf5.
     """
     # Build the constructs we can use to do matching (associated them with 3D vectors!).
     jets = ak.values_astype(
@@ -530,10 +532,30 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
 def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     result_list = fetch_training_data(ds_name, config)
 
-    # Finally, write it out into a training file.
-    ak.to_parquet(
-        result_list, config.output_path, compression="ZSTD", compression_level=-7
-    )
+    # write_training_data_parquet(result_list, config.output_path)
+    write_training_data_hdf5(result_list, config.output_path)
+
+
+def write_training_data_hdf5(result_list: ak.Array, output_path: Path):
+    """Write the training data to an HDF5 file.
+    Args:
+        result_list (ak.Array): The training data to write.
+        output_path (Path): The path to the output HDF5 file.
+    """
+    data_dict = {k: ak.to_numpy(result_list[k]) for k in result_list.fields}
+    with h5py.File(output_path, "w") as f:
+        for key, value in data_dict.items():
+            f.create_dataset(key, data=value)
+
+
+def write_training_data_parquet(result_list: ak.Array, output_path: Path):
+    """Write the training data to a parquet file.
+    Args:
+        result_list (ak.Array): The training data to write.
+        output_path (Path): The path to the output parquet file.
+    """
+
+    ak.to_parquet(result_list, output_path, compression="ZSTD", compression_level=-7)
 
 
 def fetch_training_data(ds_name, config: RunConfig):
