@@ -7,6 +7,7 @@ from typing import Dict
 import awkward as ak
 import numpy as np
 import h5py
+from pandas.api.types import is_list_like
 import servicex_local as sx_local
 import vector
 from func_adl import ObjectStream
@@ -542,10 +543,31 @@ def write_training_data_hdf5(result_list: ak.Array, output_path: Path):
         result_list (ak.Array): The training data to write.
         output_path (Path): The path to the output HDF5 file.
     """
-    data_dict = {k: ak.to_numpy(result_list[k]) for k in result_list.fields}
+    # data_dict = {}
+    # for k in result_list.fields:
+    #     field_data = result_list[k]
+    #     # If the field is a jagged array, pad it to a regular array before converting
+    #     if "var *" in str(field_data.type):
+    #         # Find the maximum length to pad to
+    #         maxlen = ak.max(ak.count(field_data[field_data.fields[0]], axis=1))
+    #         padded = ak.pad_none(field_data, maxlen)
+    #         # Replace None with 0 for numeric arrays
+    #         np_array = ak.to_numpy(ak.fill_none(padded, 0.0))
+    #         data_dict[k] = np_array
+    #     else:
+    #         data_dict[k] = ak.to_numpy(field_data)
     with h5py.File(output_path, "w") as f:
-        for key, value in data_dict.items():
-            f.create_dataset(key, data=value)
+        for f_name in result_list.fields:
+            field_data = result_list[f_name]
+            g = f.create_group(f_name)
+            if "var *" in str(field_data.type):
+                # Find the maximum length to pad to
+                maxlen = ak.max(ak.count(field_data[field_data.fields[0]], axis=1))
+                padded = ak.pad_none(field_data, maxlen)
+                # Replace None with 0 for numeric arrays
+                field_data = ak.fill_none(padded, 0.0)
+
+            ak.to_buffers(ak.to_packed(field_data), container=g)
 
 
 def write_training_data_parquet(result_list: ak.Array, output_path: Path):
