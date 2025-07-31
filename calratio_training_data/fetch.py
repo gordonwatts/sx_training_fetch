@@ -44,7 +44,7 @@ def main(
         help="Run ServiceX locally (requires docker)",
     ),
     output: str = typer.Option(
-        "training.parquet",
+        "training.hdf5",
         "--output",
         "-o",
         help="Output file path",

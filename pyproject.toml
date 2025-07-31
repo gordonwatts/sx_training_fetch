@@ -19,6 +19,7 @@ dependencies = [
     "servicex",
     "func_adl_servicex_xaodr25",
     "servicex-analysis-utils",
+    "h5py",
 ]
 requires-python = ">=3.10"
 

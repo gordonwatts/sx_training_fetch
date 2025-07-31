@@ -37,7 +37,7 @@ What you'll need on your system:
 │ --verbose       -v      TEXT  Increase verbosity level (use -v for INFO, -vv for DEBUG) [default: 0]                           │
 │ --ignore-cache                Ignore cache and fetch fresh data                                                                │
 │ --local                       Run ServiceX locally (requires docker)                                                           │
-│ --output        -o      TEXT  Output file path [default: training.parquet]                                                     │
+│ --output        -o      TEXT  Output file path [default: training.hdf5]                                                        │
 │ --mc                          Include LLP MC truth info (Warning: May crash if dataset lacks MC info)                          │
 │ --sx-backend            TEXT  ServiceX backend name [default: servicex]                                                        │
 │ --help                        Show this message and exit.                                                                      │
