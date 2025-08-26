@@ -609,20 +609,14 @@ def run_query(
     # Build the ServiceX spec and run it.
     from .sx_utils import build_sx_spec
 
-    spec, backend_name, adaptor = build_sx_spec(
-        query,
-        ds_name,
-        prefer_local=config.run_locally,
-        backend_name=config.sx_backend,
-        n_files=config.n_files,
+    spec, use_local, backend_name, adaptor = build_sx_spec(
+        query, ds_name, config.run_locally, config.sx_backend
     )
-    if config.run_locally or backend_name == "local-backend":
+    if use_local:
         sx_result = sx_local.deliver(
             spec, adaptor=adaptor, ignore_local_cache=config.ignore_cache
         )
     else:
-        if config.run_locally:
-            raise ValueError(f"Unable to run dataset {ds_name} locally.")
         sx_result = deliver(
             spec, servicex_name=backend_name, ignore_local_cache=config.ignore_cache
         )
