@@ -4,6 +4,8 @@ from typing import Optional
 
 import typer
 
+from servicex_local import Platform
+
 
 def set_logging(verbosity: int):
     """
@@ -72,6 +74,11 @@ def main(
         "--n-files", "-n",
         help="Number of files to process in the dataset. Default is to process all files.",
     ),
+    platform: str = typer.Option(
+        "docker",
+        "--platform",
+        help="Container platform to use with local ServiceX (docker, singularity, or wsl2)",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -82,6 +89,17 @@ def main(
         RunConfig,
     )
 
+    if platform.lower() == "docker":
+        platform_to_use = Platform.docker
+    elif platform.lower() == "singularity":
+        platform_to_use = Platform.singularity
+    elif platform.lower() == "wsl2":
+        platform_to_use = Platform.wsl2
+    else:
+        raise ValueError(
+            f"Unknown platform {platform}, valid options are docker, singularity, or wsl2"
+        )
+
     run_config = RunConfig(
         ignore_cache=ignore_cache,
         run_locally=local,
@@ -90,6 +108,7 @@ def main(
         do_rotation=do_rotation,
         sx_backend=sx_backend,
         n_files=n_files,
+        platform=platform_to_use,
     )
     fetch_training_data_to_file(dataset, run_config)
 

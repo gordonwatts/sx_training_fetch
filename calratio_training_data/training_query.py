@@ -59,6 +59,7 @@ class RunConfig:
     do_rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
+    platform: sx_local.Platform = sx_local.Platform.docker
 
 
 @dataclass
@@ -610,7 +611,7 @@ def run_query(
     from .sx_utils import build_sx_spec
 
     spec, use_local, backend_name, adaptor = build_sx_spec(
-        query, ds_name, config.run_locally, config.sx_backend
+        query, ds_name, config.run_locally, config.sx_backend, config.platform
     )
     if use_local:
         sx_result = sx_local.deliver(
