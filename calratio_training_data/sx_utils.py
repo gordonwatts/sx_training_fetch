@@ -37,13 +37,16 @@ def build_sx_spec(
         raise ValueError(f"Unable to run dataset {ds_name} in prefered configuration.")
 
     # Second branch: decide on the backend.
+
+    if platform == Platform.singularity:
+        image = "docker://sslhep/servicex_func_adl_xaod_transformer:25.2.41"
+    elif platform == Platform.docker:
+        image = "sslhep/servicex_func_adl_xaod_transformer:25.2.41"
+    else:
+        raise RuntimeError(f"No image is present for the platform: {platform}")
+
     if use_local:
-        codegen_name, backend_name_local, adaptor = install_sx_local(
-            "docker://sslhep/servicex_func_adl_xaod_transformer:25.2.41",
-            Platform.singularity,
-        )
-        backend = backend_name_local
-        codegen_name, adaptor = install_sx_local("docker://sslhep/servicex_func_adl_xaod_transformer:25.2.41", platform)
+        codegen_name, adaptor = install_sx_local(image, platform)
         backend = "sx_local"
     else:
         backend = backend_name
