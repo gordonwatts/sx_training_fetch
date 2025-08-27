@@ -6,6 +6,7 @@ def build_sx_spec(
     ds_name: str,
     prefer_local: bool = False,
     backend_name: str = "servicex",
+    platform: Platform = Platform.docker,
 ):
     """Build a ServiceX spec from the given query and dataset."""
 
@@ -18,8 +19,8 @@ def build_sx_spec(
 
     # Second branch: decide on the backend.
     if use_local:
-        codegen_name, backend_name_local, adaptor = install_sx_local("docker://sslhep/servicex_func_adl_xaod_transformer:25.2.41", Platform.singularity)
-        backend = backend_name_local
+        codegen_name, adaptor = install_sx_local("docker://sslhep/servicex_func_adl_xaod_transformer:25.2.41", platform)
+        backend = "sx_local"
     else:
         backend = backend_name
         codegen_name = "atlasr25"

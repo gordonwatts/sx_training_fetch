@@ -51,6 +51,7 @@ class RunConfig:
     output_path: str = "training.parquet"
     mc: bool = False
     sx_backend: str = "servicex"
+    platform: sx_local.Platform = sx_local.Platform.docker
 
 
 @dataclass
@@ -551,7 +552,7 @@ def run_query(
     from .sx_utils import build_sx_spec
 
     spec, use_local, backend_name, adaptor = build_sx_spec(
-        query, ds_name, config.run_locally, config.sx_backend
+        query, ds_name, config.run_locally, config.sx_backend, config.platform
     )
     if use_local:
         sx_result = sx_local.deliver(
