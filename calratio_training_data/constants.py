@@ -20,3 +20,7 @@ LLP_Lxy_max = 4000
 # Calorimeter Lz is 3500 mm to 6000 mm (abs)
 LLP_Lz_min = 3500
 LLP_Lz_max = 6000
+
+# Min/Max Jet pT 
+min_jet_pt = 40 # GeV
+max_jet_pt = 500 # GeV
