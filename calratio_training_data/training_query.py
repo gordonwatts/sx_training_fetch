@@ -22,6 +22,8 @@ from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 from servicex_analysis_utils import to_awk
 
+from calratio_training_data.processing import processing_func
+
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
     JET_TRACK_DELTA_R,
@@ -41,6 +43,7 @@ from .cpp_xaod_utils import (
     jet_clean_llp,
     track_summary_value,
 )
+
 
 vector.register_awkward()
 
@@ -495,56 +498,12 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
 
-    # ** Processing clusters ** 
-    processed_clusters = {}
-
-    # flatten clusters to do operations on them
-    flat_clusters = ak.flatten(clusters, axis=1)
-
-    # Doing eta phi flip - ensures highest pT cluster is at the center
-    cluster_sign = ak.sum(np.multiply(flat_clusters.eta, flat_clusters.pt), axis=1)
-    cluster_sign = np.vectorize(lambda x: 1 * (x>= 0) + (-1)*(x<0))(cluster_sign)
-    processed_clusters['eta'] = flat_clusters.eta * cluster_sign
-
-    cluster_sign = ak.sum(np.multiply(flat_clusters.phi, flat_clusters.pt), axis=1)
-    cluster_sign = np.vectorize(lambda x: 1 * (x>= 0) + (-1)*(x<0))(cluster_sign)
-    processed_clusters['phi'] = flat_clusters.phi * cluster_sign
-
-    # Rescaling cluster pT - improves NN convergence
-    sub_pt = flat_clusters.pt - min_jet_pt
-    processed_clusters['pt'] = sub_pt / (max_jet_pt - min_jet_pt)
-    
-    # Rescaling cluster energy fraction
-    summed_energy = flat_clusters.l1ecal + flat_clusters.l2ecal + flat_clusters.l3ecal + flat_clusters.l4ecal + flat_clusters.l1hcal + flat_clusters.l2hcal + flat_clusters.l3hcal + flat_clusters.l4hcal
-    for i in range(1, 5):
-        processed_clusters[f'l{i}ecal'] = flat_clusters[f'l{i}ecal'] / summed_energy
-        processed_clusters[f'l{i}hcal'] = flat_clusters[f'l{i}hcal'] / summed_energy
-
-    # ** Processing Tracks **
-    processed_tracks = {}
-    flat_tracks = ak.flatten(nearby_tracks, axis=1) # Flatten to do operations to it
-
-    # rescaling track pT - improves NN convergence
-    sub_pt = flat_tracks.pt - min_jet_pt
-    processed_tracks['pt'] = sub_pt / (max_jet_pt - min_jet_pt)
-
-    # eta, phi flip
-    eta_sign = ak.sum(np.multiply(flat_tracks.eta, flat_tracks.pt), axis=1)
-    eta_sign = np.vectorize(lambda x: 1 * (x>= 0) + (-1)*(x<0))(eta_sign)
-    processed_tracks['eta'] = flat_tracks.eta * eta_sign
-
-    phi_sign = ak.sum(np.multiply(flat_tracks.phi, flat_tracks.pt), axis=1)
-    phi_sign = np.vectorize(lambda x: 1 * (x>= 0) + (-1)*(x<0))(phi_sign)
-    processed_tracks['phi'] = flat_tracks.phi * phi_sign
-
-    # rescale track z0 - restricts distribution to be around 0
-    processed_tracks['d0'] = flat_tracks.d0/250
-
-    # ** pre-processing jet level information **
-    sub_jet_pt = ak.flatten(jets.pt, axis=1) - min_jet_pt
+    # Processing clusters and tracks
+    processed_clusters = processing_func(clusters, "cluster")
+    processed_tracks = processing_func(nearby_tracks, "track")
 
     # The top level jet information.
-    per_jet_training_data_dict["pt"] = sub_jet_pt/(max_jet_pt - min_jet_pt)
+    per_jet_training_data_dict["pt"] = processing_func(jets, "jet")["pt"]
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
 
@@ -552,36 +511,36 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     # per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
     per_jet_training_data_dict["tracks"] = ak.zip(
         {
-            "eta": processed_tracks['eta'],
-            "phi": processed_tracks['phi'],
-            "pt": processed_tracks['pt'],
-            "vertex_nParticles": flat_tracks['vertex_nParticles'],
-            "d0": processed_tracks['d0'],
-            "z0": flat_tracks['z0'],
-            "chiSquared": flat_tracks['chiSquared'],
-            "PixelShared": flat_tracks['PixelShared'],
-            "SCTShared": flat_tracks['SCTShared'],
-            "PixelHits": flat_tracks['PixelHits'],
-            "SCTHits": flat_tracks['SCTHits']
+            "eta": processed_tracks["eta"],
+            "phi": processed_tracks["phi"],
+            "pt": processed_tracks["pt"],
+            "vertex_nParticles": ak.flatten(nearby_tracks["vertex_nParticles"], axis=1),
+            "d0": ak.flatten(nearby_tracks["d0"], axis=1),
+            "z0": processed_tracks["z0"],
+            "chiSquared": ak.flatten(nearby_tracks["chiSquared"], axis=1),
+            "PixelShared": ak.flatten(nearby_tracks["PixelShared"], axis=1),
+            "SCTShared": ak.flatten(nearby_tracks["SCTShared"], axis=1),
+            "PixelHits": ak.flatten(nearby_tracks["PixelHits"], axis=1),
+            "SCTHits": ak.flatten(nearby_tracks["SCTHits"], axis=1),
         }
     )
     # per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
     per_jet_training_data_dict["clusters"] = ak.zip(
-            {
-                "eta": processed_clusters['eta'],
-                "phi": flat_clusters['phi'],
-                "pt": processed_clusters['pt'],
-                "l1hcal": processed_clusters['l1hcal'],
-                "l2hcal": processed_clusters['l2hcal'],
-                "l3hcal": processed_clusters['l3hcal'],
-                "l4hcal": processed_clusters['l4hcal'],
-                "l1ecal": processed_clusters['l1ecal'],
-                "l2ecal": processed_clusters['l2ecal'],
-                "l3ecal": processed_clusters['l3ecal'],
-                "l4ecal": processed_clusters['l4ecal'],
-                "time": flat_clusters['time'],
-            }
-        )
+        {
+            "eta": processed_clusters["eta"],
+            "phi": ak.flatten(clusters["phi"], axis=1),
+            "pt": processed_clusters["pt"],
+            "l1hcal": processed_clusters["l1hcal"],
+            "l2hcal": processed_clusters["l2hcal"],
+            "l3hcal": processed_clusters["l3hcal"],
+            "l4hcal": processed_clusters["l4hcal"],
+            "l1ecal": processed_clusters["l1ecal"],
+            "l2ecal": processed_clusters["l2ecal"],
+            "l3ecal": processed_clusters["l3ecal"],
+            "l4ecal": processed_clusters["l4ecal"],
+            "time": ak.flatten(clusters["time"], axis=1),
+        }
+    )
     per_jet_training_data_dict["msegs"] = ak.flatten(
         ak.zip(
             {
