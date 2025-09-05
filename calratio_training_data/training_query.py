@@ -77,7 +77,7 @@ class TopLevelEvent:
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5 and jet_clean_llp(jet)
+    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5  # and jet_clean_llp(jet)
 
 
 def build_preselection():
@@ -275,9 +275,9 @@ def fetch_raw_training_data(
                 for jet_clusters in e.jet_clusters
                 for c in jet_clusters
             ],
-            "clus_time": [
-                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
-            ],
+            # "clus_time": [
+            #     c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+            # ],
             **(
                 {
                     "LLP_eta": [p.eta() for p in e.bsm_particles],
@@ -392,7 +392,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
                 "l2ecal": data.clus_l2ecal,  # type: ignore
                 "l3ecal": data.clus_l3ecal,  # type: ignore
                 "l4ecal": data.clus_l4ecal,  # type: ignore
-                "time": data.clus_time,  # type: ignore
+                # "time": data.clus_time,  # type: ignore
             },
             with_name="Momentum3D",
         ),
