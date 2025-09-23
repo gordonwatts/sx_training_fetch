@@ -534,16 +534,37 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     result_list = fetch_training_data(ds_name, config)
 
     # Finally, write it out into a training file.
+    # Accumulate the file data into a single file by concatenation.
+    data_queue = []
+    event_count = 0
+    file_index = 0
     for r in result_list:
-        ak.to_parquet(r, config.output_path, compression="ZSTD", compression_level=-7)
+        data_queue.append(r)
+        event_count += len(r)
+        if event_count >= 800_000:
+            ak.to_parquet(
+                ak.concatenate(data_queue, axis=0),
+                config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
+                compression="ZSTD",
+                compression_level=-7,
+            )
+            data_queue = []
+            file_index += 1
+            event_count = 0
+
+    if len(data_queue) > 0:
+        ak.to_parquet(
+            ak.concatenate(data_queue, axis=0),
+            config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
+            compression="ZSTD",
+            compression_level=-7,
+        )
 
 
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
         yield convert_to_training_data(ar, mc=config.mc)
-    # result_list = convert_to_training_data(raw_data, mc=config.mc)
-    # return result_list
 
 
 def run_query(
