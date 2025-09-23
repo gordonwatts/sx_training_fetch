@@ -46,8 +46,8 @@ vector.register_awkward()
 # New data class for run configuration options
 @dataclass
 class RunConfig:
-    ignore_cache: bool
-    run_locally: bool
+    ignore_cache: bool = False
+    run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
     sx_backend: str = "servicex"
@@ -77,7 +77,7 @@ class TopLevelEvent:
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5 and jet_clean_llp(jet)
+    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5  # and jet_clean_llp(jet)
 
 
 def build_preselection():
