@@ -150,6 +150,7 @@ def fetch_raw_training_data(
     query_preselection = build_preselection()
 
     # Query the run number, etc.
+    logging.warning("Jet Cluster Timing is ignored! TURN BACK ON")
     query = query_preselection.Select(
         lambda e: {
             "runNumber": e.event_info.runNumber(),
@@ -278,9 +279,9 @@ def fetch_raw_training_data(
                 for jet_clusters in e.jet_clusters
                 for c in jet_clusters
             ],
-            "clus_time": [
-                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
-            ],
+            # "clus_time": [
+            #     c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+            # ],
             **(
                 {
                     "LLP_eta": [p.eta() for p in e.bsm_particles],
@@ -381,6 +382,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         np.float32,
     )
 
+    logging.warning("Jet Cluster Timing is ignored in cluster object build! TURN BACK ON")
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -395,7 +397,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
                 "l2ecal": data.clus_l2ecal,  # type: ignore
                 "l3ecal": data.clus_l3ecal,  # type: ignore
                 "l4ecal": data.clus_l4ecal,  # type: ignore
-                "time": data.clus_time,  # type: ignore
+                # "time": data.clus_time,  # type: ignore
             },
             with_name="Momentum3D",
         ),
@@ -536,21 +538,24 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     # Finally, write it out into a training file.
     # Accumulate the file data into a single file by concatenation.
     data_queue = []
-    event_count = 0
     file_index = 0
+    event_size = 0
     for r in result_list:
         data_queue.append(r)
-        event_count += len(r)
-        if event_count >= 800_000:
+        event_size += r.nbytes
+        if (event_size / 1_073_741_824) >= 4:  # 4 GB in-memory
             ak.to_parquet(
                 ak.concatenate(data_queue, axis=0),
                 config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
                 compression="ZSTD",
                 compression_level=-7,
             )
+            logging.info(f"Writing file {file_index:03d} with in-memory size "
+                         f"{event_size/1_073_741_824:0.2f} GB and "
+                         f"{sum(len(e) for e in data_queue):,} jets.")
             data_queue = []
             file_index += 1
-            event_count = 0
+            event_size = 0
 
     if len(data_queue) > 0:
         ak.to_parquet(
