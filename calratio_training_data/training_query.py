@@ -22,6 +22,8 @@ from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 
+from calratio_training_data.processing import processing_func
+
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
     JET_TRACK_DELTA_R,
@@ -31,6 +33,8 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
+    min_jet_pt,
+    max_jet_pt,
 )
 
 from .cpp_xaod_utils import (
@@ -39,6 +43,7 @@ from .cpp_xaod_utils import (
     jet_clean_llp,
     track_summary_value,
 )
+
 
 vector.register_awkward()
 
@@ -498,27 +503,62 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
 
+    # Processing clusters, tracks, and msegs
+    processed_clusters = processing_func(clusters, "cluster", ak.flatten(jets, axis=1))
+    processed_tracks = processing_func(nearby_tracks, "track", ak.flatten(jets, axis=1))
+    processed_msegs = processing_func(nearby_msegs, "mseg", ak.flatten(jets, axis=1))
+
     # The top level jet information.
-    per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
+    per_jet_training_data_dict["pt"] = processing_func(jets, "jet")["pt"]
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
 
     # Tracks, clusters, and muon segments.
-    per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
-    per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
-    per_jet_training_data_dict["msegs"] = ak.flatten(
-        ak.zip(
-            {
-                "etaPos": nearby_msegs.x.eta,
-                "phiPos": nearby_msegs.x.phi,
-                "etaDir": nearby_msegs.p.eta,
-                "phiDir": nearby_msegs.p.phi,
-                "t0": nearby_msegs.x.t0,
-                "chiSquared": nearby_msegs.x.chiSquared,
-            }
-        ),
-        axis=1,
+    # per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
+    per_jet_training_data_dict["tracks"] = ak.zip(
+        {
+            "eta": processed_tracks["eta"],
+            "phi": processed_tracks["phi"],
+            "pt": processed_tracks["pt"],
+            "vertex_nParticles": ak.flatten(nearby_tracks["vertex_nParticles"], axis=1),
+            "d0": ak.flatten(nearby_tracks["d0"], axis=1),
+            "z0": processed_tracks["z0"],
+            "chiSquared": ak.flatten(nearby_tracks["chiSquared"], axis=1),
+            "PixelShared": ak.flatten(nearby_tracks["PixelShared"], axis=1),
+            "SCTShared": ak.flatten(nearby_tracks["SCTShared"], axis=1),
+            "PixelHits": ak.flatten(nearby_tracks["PixelHits"], axis=1),
+            "SCTHits": ak.flatten(nearby_tracks["SCTHits"], axis=1),
+        }
     )
+    # per_jet_training_data_dict["clusters"] = ak.flatten(clusters, axis=1)
+    per_jet_training_data_dict["clusters"] = ak.zip(
+        {
+            "eta": processed_clusters["eta"],
+            "phi": ak.flatten(clusters["phi"], axis=1),
+            "pt": processed_clusters["pt"],
+            "l1hcal": processed_clusters["l1hcal"],
+            "l2hcal": processed_clusters["l2hcal"],
+            "l3hcal": processed_clusters["l3hcal"],
+            "l4hcal": processed_clusters["l4hcal"],
+            "l1ecal": processed_clusters["l1ecal"],
+            "l2ecal": processed_clusters["l2ecal"],
+            "l3ecal": processed_clusters["l3ecal"],
+            "l4ecal": processed_clusters["l4ecal"],
+            "time": ak.flatten(clusters["time"], axis=1),
+        }
+    )
+    # per_jet_training_data_dict["msegs"] = ak.flatten(
+    per_jet_training_data_dict["msegs"] = ak.zip(
+        {
+            "etaPos": processed_msegs["etaPos"],
+            "phiPos": processed_msegs["phiPos"],
+            "etaDir": ak.flatten(nearby_msegs.p.eta, axis=1),
+            "phiDir": processed_msegs["phiDir"],
+            "t0": ak.flatten(nearby_msegs.x.t0, axis=1),
+            "chiSquared": ak.flatten(nearby_msegs.x.chiSquared, axis=1),
+        }
+    )
+    # )
 
     # And LLP's if we are doing MC.
     if mc:
