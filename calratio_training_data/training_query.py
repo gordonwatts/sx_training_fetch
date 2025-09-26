@@ -498,9 +498,10 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
 
-    # Processing clusters and tracks
-    processed_clusters = processing_func(clusters, "cluster")
-    processed_tracks = processing_func(nearby_tracks, "track")
+    # Processing clusters, tracks, and msegs
+    processed_clusters = processing_func(clusters, "cluster", ak.flatten(jets, axis=1))
+    processed_tracks = processing_func(nearby_tracks, "track", ak.flatten(jets, axis=1))
+    processed_msegs = processing_func(nearby_msegs, "mseg", ak.flatten(jets, axis=1))
 
     # The top level jet information.
     per_jet_training_data_dict["pt"] = processing_func(jets, "jet")["pt"]
@@ -541,19 +542,18 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             "time": ak.flatten(clusters["time"], axis=1),
         }
     )
-    per_jet_training_data_dict["msegs"] = ak.flatten(
-        ak.zip(
-            {
-                "etaPos": nearby_msegs.x.eta,
-                "phiPos": nearby_msegs.x.phi,
-                "etaDir": nearby_msegs.p.eta,
-                "phiDir": nearby_msegs.p.phi,
-                "t0": nearby_msegs.x.t0,
-                "chiSquared": nearby_msegs.x.chiSquared,
-            }
-        ),
-        axis=1,
+    # per_jet_training_data_dict["msegs"] = ak.flatten(
+    per_jet_training_data_dict["msegs"] = ak.zip(
+        {
+            "etaPos": processed_msegs["etaPos"],
+            "phiPos": processed_msegs["phiPos"],
+            "etaDir": ak.flatten(nearby_msegs.p.eta, axis=1),
+            "phiDir": processed_msegs["phiDir"],
+            "t0": ak.flatten(nearby_msegs.x.t0, axis=1),
+            "chiSquared": ak.flatten(nearby_msegs.x.chiSquared, axis=1),
+        }
     )
+    # )
 
     # And LLP's if we are doing MC.
     if mc:
