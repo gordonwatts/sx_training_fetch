@@ -55,6 +55,7 @@ class RunConfig:
     run_locally: bool
     output_path: str = "training.parquet"
     mc: bool = False
+    do_rotation: bool = True
     sx_backend: str = "servicex"
 
 
@@ -311,7 +312,9 @@ def fetch_raw_training_data(
     return run_query(ds_name, query, config)
 
 
-def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Array:
+def convert_to_training_data(
+    data: Dict[str, ak.Array], mc: bool = False, do_rotation: bool = True
+) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
@@ -525,11 +528,15 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
-    do_rotations(
-        per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
-    )
-    do_rotations(per_jet_training_data_dict["clusters"], "cluster")
-    do_rotations(per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1))
+    if do_rotation:
+        print("Doing the rotations")
+        do_rotations(
+            per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
+        )
+        do_rotations(per_jet_training_data_dict["clusters"], "cluster")
+        do_rotations(
+            per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
+        )
 
     # Doing scaling on jets, tracks, and clusters
     do_rescaling(per_jet_training_data_dict, "jet")
@@ -555,7 +562,9 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
-    result_list = convert_to_training_data(raw_data, mc=config.mc)
+    result_list = convert_to_training_data(
+        raw_data, mc=config.mc, do_rotation=config.do_rotation
+    )
     return result_list
 
 

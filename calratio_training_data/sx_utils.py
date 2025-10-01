@@ -152,14 +152,14 @@ def install_sx_local():
     Returns:
         tuple: A tuple containing the names of the codegen and backend.
     """
-    from servicex_local import DockerScienceImage, LocalXAODCodegen, SXLocalAdaptor
+    from servicex_local import SingularityScienceImage, LocalXAODCodegen, SXLocalAdaptor
 
     codegen_name = "atlasr22-local"
 
     codegen = LocalXAODCodegen()
     # science_runner = WSL2ScienceImage("atlas_al9", "25.2.12")
-    science_runner = DockerScienceImage(
-        "sslhep/servicex_func_adl_xaod_transformer:25.2.41"
+    science_runner = SingularityScienceImage(
+        "docker://sslhep/servicex_func_adl_xaod_transformer:25.2.41"
     )
     adaptor = SXLocalAdaptor(
         codegen, science_runner, codegen_name, "http://localhost:5001"
