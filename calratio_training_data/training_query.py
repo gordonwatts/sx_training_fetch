@@ -529,7 +529,6 @@ def convert_to_training_data(
 
     # Doing rotations on tracks, clusters, msegs
     if do_rotation:
-        print("Doing the rotations")
         do_rotations(
             per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
         )
