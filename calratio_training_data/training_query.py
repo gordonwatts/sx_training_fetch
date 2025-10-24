@@ -51,6 +51,7 @@ class RunConfig:
     output_path: str = "training.parquet"
     mc: bool = False
     sx_backend: str = "servicex"
+    platform: sx_local.Platform = sx_local.Platform.docker
 
 
 @dataclass
@@ -580,16 +581,14 @@ def run_query(
     # Build the ServiceX spec and run it.
     from .sx_utils import build_sx_spec
 
-    spec, backend_name, adaptor = build_sx_spec(
-        query, ds_name, config.run_locally, config.sx_backend
+    spec, use_local, backend_name, adaptor = build_sx_spec(
+        query, ds_name, config.run_locally, config.sx_backend, config.platform
     )
-    if config.run_locally or backend_name == "local-backend":
+    if use_local:
         sx_result = sx_local.deliver(
             spec, adaptor=adaptor, ignore_local_cache=config.ignore_cache
         )
     else:
-        if config.run_locally:
-            raise ValueError(f"Unable to run dataset {ds_name} locally.")
         sx_result = deliver(
             spec, servicex_name=backend_name, ignore_local_cache=config.ignore_cache
         )

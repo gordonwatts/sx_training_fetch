@@ -1,7 +1,7 @@
 import logging
-import logging.handlers
-
 import typer
+
+from servicex_local import Platform
 
 
 def set_logging(verbosity: int):
@@ -60,6 +60,11 @@ def main(
         "--sx-backend",
         help="ServiceX backend name",
     ),
+    platform: str = typer.Option(
+        "docker",
+        "--platform",
+        help="Container platform to use with local ServiceX (docker, singularity, or wsl2)",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -70,12 +75,24 @@ def main(
         RunConfig,
     )
 
+    if platform.lower() == "docker":
+        platform_to_use = Platform.docker
+    elif platform.lower() == "singularity":
+        platform_to_use = Platform.singularity
+    elif platform.lower() == "wsl2":
+        platform_to_use = Platform.wsl2
+    else:
+        raise ValueError(
+            f"Unknown platform {platform}, valid options are docker, singularity, or wsl2"
+        )
+
     run_config = RunConfig(
         ignore_cache=ignore_cache,
         run_locally=local,
         output_path=output,
         mc=mc,
         sx_backend=sx_backend,
+        platform=platform_to_use,
     )
     fetch_training_data_to_file(dataset, run_config)
 
