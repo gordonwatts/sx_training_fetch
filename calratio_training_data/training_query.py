@@ -46,8 +46,8 @@ vector.register_awkward()
 # New data class for run configuration options
 @dataclass
 class RunConfig:
-    ignore_cache: bool
-    run_locally: bool
+    ignore_cache: bool = False
+    run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
     sx_backend: str = "servicex"
