@@ -47,7 +47,7 @@ def build_sx_spec(
 
     # Build the ServiceX spec
     spec = ServiceXSpec(
-        Sample=[
+        Sample=[  # type: ignore
             Sample(
                 Name="MySample",
                 Dataset=dataset,

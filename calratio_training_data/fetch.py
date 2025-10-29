@@ -16,7 +16,7 @@ def set_logging(verbosity: int):
         if verbosity == 0
         else logging.INFO if verbosity == 1 else logging.DEBUG
     )
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=level, force=True)
 
     # This isn't normally set. However, some of our functions need to grab everything, so
     # they may mess with the root logger's level. This keeps the "user" protected.

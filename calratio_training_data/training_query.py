@@ -1,9 +1,10 @@
 import logging
 from dataclasses import dataclass
 from math import sqrt
-from typing import Dict
+from typing import Any, Dict, Generator
 
 import awkward as ak
+import uproot
 import numpy as np
 import servicex_local as sx_local
 import vector
@@ -20,7 +21,6 @@ from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
-from servicex_analysis_utils import to_awk
 
 from calratio_training_data.processing import do_rotations, do_rescaling
 
@@ -51,8 +51,8 @@ vector.register_awkward()
 # New data class for run configuration options
 @dataclass
 class RunConfig:
-    ignore_cache: bool
-    run_locally: bool
+    ignore_cache: bool = False
+    run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
     do_rotation: bool = True
@@ -81,9 +81,12 @@ class TopLevelEvent:
     bsm_particles: FADLStream[TruthParticle_v1]
 
 
+logging.warning("Jet Cleanup Is Turned Off - TURN BACK ON")
+
+
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5 and jet_clean_llp(jet)
+    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5  # and jet_clean_llp(jet)
 
 
 def build_preselection():
@@ -153,6 +156,7 @@ def fetch_raw_training_data(
     query_preselection = build_preselection()
 
     # Query the run number, etc.
+    logging.warning("Jet Cluster Timing is ignored! TURN BACK ON")
     query = query_preselection.Select(
         lambda e: {
             "runNumber": e.event_info.runNumber(),
@@ -281,9 +285,9 @@ def fetch_raw_training_data(
                 for jet_clusters in e.jet_clusters
                 for c in jet_clusters
             ],
-            "clus_time": [
-                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
-            ],
+            # "clus_time": [
+            #     c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+            # ],
             **(
                 {
                     "LLP_eta": [p.eta() for p in e.bsm_particles],
@@ -386,6 +390,7 @@ def convert_to_training_data(
         np.float32,
     )
 
+    logging.warning("Jet Cluster Timing is ignored in cluster object build! TURN BACK ON")
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -400,7 +405,7 @@ def convert_to_training_data(
                 "l2ecal": data.clus_l2ecal,  # type: ignore
                 "l3ecal": data.clus_l3ecal,  # type: ignore
                 "l4ecal": data.clus_l4ecal,  # type: ignore
-                "time": data.clus_time,  # type: ignore
+                # "time": data.clus_time,  # type: ignore
             },
             with_name="Momentum3D",
         ),
@@ -554,24 +559,47 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     result_list = fetch_training_data(ds_name, config)
 
     # Finally, write it out into a training file.
-    ak.to_parquet(
-        result_list, config.output_path, compression="ZSTD", compression_level=-7
-    )
+    # Accumulate the file data into a single file by concatenation.
+    data_queue = []
+    file_index = 0
+    event_size = 0
+    for r in result_list:
+        data_queue.append(r)
+        event_size += r.nbytes
+        if (event_size / 1_073_741_824) >= 4:  # 4 GB in-memory
+            ak.to_parquet(
+                ak.concatenate(data_queue, axis=0),
+                config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
+                compression="ZSTD",
+                compression_level=-7,
+            )
+            logging.info(f"Writing file {file_index:03d} with in-memory size "
+                         f"{event_size/1_073_741_824:0.2f} GB and "
+                         f"{sum(len(e) for e in data_queue):,} jets.")
+            data_queue = []
+            file_index += 1
+            event_size = 0
+
+    if len(data_queue) > 0:
+        ak.to_parquet(
+            ak.concatenate(data_queue, axis=0),
+            config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
+            compression="ZSTD",
+            compression_level=-7,
+        )
 
 
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
-    result_list = convert_to_training_data(
-        raw_data, mc=config.mc, do_rotation=config.do_rotation
-    )
-    return result_list
+    for ar in raw_data:
+        yield convert_to_training_data(ar, mc=config.mc, do_rotation=config.do_rotation)
 
 
 def run_query(
     ds_name: str,
     query: ObjectStream,
     config: RunConfig = RunConfig(ignore_cache=False, run_locally=False),
-) -> Dict[str, ak.Array]:
+) -> Generator[Dict[str, ak.Array], Any, None]:
     # Build the ServiceX spec and run it.
     from .sx_utils import build_sx_spec
 
@@ -588,6 +616,15 @@ def run_query(
         sx_result = deliver(
             spec, servicex_name=backend_name, ignore_local_cache=config.ignore_cache
         )
-    result_list = to_awk(sx_result)["MySample"]
-    logging.info(f"Received {len(result_list)} entries.")
-    return result_list
+
+    # Work one file at a time to return the results.
+    if sx_result is None:
+        raise ValueError("No result from ServiceX!")
+
+    entries = 0
+    for file in sx_result["MySample"]:
+        f_data = uproot.open(file)["atlas_xaod_tree"].arrays()  # type: ignore
+        entries += len(f_data)
+        yield f_data  # type: ignore
+
+    logging.info(f"Received {entries} entries.")
