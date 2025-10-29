@@ -22,6 +22,8 @@ from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 
+from calratio_training_data.processing import do_rotations, do_rescaling
+
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
     JET_TRACK_DELTA_R,
@@ -31,6 +33,8 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
+    min_jet_pt,
+    max_jet_pt,
 )
 
 from .cpp_xaod_utils import (
@@ -39,6 +43,7 @@ from .cpp_xaod_utils import (
     jet_clean_llp,
     track_summary_value,
 )
+
 
 vector.register_awkward()
 
@@ -50,6 +55,7 @@ class RunConfig:
     run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
+    do_rotation: bool = True
     sx_backend: str = "servicex"
 
 
@@ -310,7 +316,9 @@ def fetch_raw_training_data(
     return run_query(ds_name, query, config)
 
 
-def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.Array:
+def convert_to_training_data(
+    data: Dict[str, ak.Array], mc: bool = False, do_rotation: bool = True
+) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
@@ -498,7 +506,7 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
 
-    # The top level jet information.
+    # # The top level jet information.
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
@@ -523,6 +531,21 @@ def convert_to_training_data(data: Dict[str, ak.Array], mc: bool = False) -> ak.
     # And LLP's if we are doing MC.
     if mc:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
+
+    # Doing rotations on tracks, clusters, msegs
+    if do_rotation:
+        do_rotations(
+            per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
+        )
+        do_rotations(per_jet_training_data_dict["clusters"], "cluster")
+        do_rotations(
+            per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
+        )
+
+    # Doing scaling on jets, tracks, and clusters
+    do_rescaling(per_jet_training_data_dict, "jet")
+    do_rescaling(per_jet_training_data_dict["clusters"], "cluster")
+    do_rescaling(per_jet_training_data_dict["tracks"], "track")
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
@@ -569,7 +592,7 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
-        yield convert_to_training_data(ar, mc=config.mc)
+        yield convert_to_training_data(ar, mc=config.mc, do_rotation=config.do_rotation)
 
 
 def run_query(
