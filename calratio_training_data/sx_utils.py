@@ -3,7 +3,7 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 from urllib.parse import unquote, urlparse
 
 from servicex import Sample, ServiceXSpec, dataset
@@ -21,7 +21,7 @@ def build_sx_spec(
     query,
     ds_name: str,
     prefer_local: bool = False,
-    backend_name: str = "servicex",
+    backend_name: Optional[str] = None,
 ):
     """Build a ServiceX spec from the given query and dataset."""
 
