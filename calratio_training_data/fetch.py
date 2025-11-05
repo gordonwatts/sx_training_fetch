@@ -55,8 +55,8 @@ def main(
         help="Include LLP MC truth info (will crash if run on file without MC "
         "info!)",
     ),
-    do_rotation: bool = typer.Option(
-        True,
+    no_rotation: bool = typer.Option(
+        False,
         "--no_rotation",
         help="Skips rotation step on cluster, track, mseg eta and phi variables. Without the flag the rotations are applied.",
     ),
@@ -80,7 +80,7 @@ def main(
         run_locally=local,
         output_path=output,
         mc=mc,
-        do_rotation=do_rotation,
+        no_rotation=no_rotation,
         sx_backend=sx_backend,
     )
     fetch_training_data_to_file(dataset, run_config)

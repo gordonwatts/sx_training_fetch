@@ -55,7 +55,7 @@ class RunConfig:
     run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
-    do_rotation: bool = True
+    no_rotation: bool = False
     sx_backend: str = "servicex"
 
 
@@ -317,7 +317,7 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], mc: bool = False, do_rotation: bool = True
+    data: Dict[str, ak.Array], mc: bool = False, no_rotation: bool = False
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -390,7 +390,9 @@ def convert_to_training_data(
         np.float32,
     )
 
-    logging.warning("Jet Cluster Timing is ignored in cluster object build! TURN BACK ON")
+    logging.warning(
+        "Jet Cluster Timing is ignored in cluster object build! TURN BACK ON"
+    )
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -533,7 +535,7 @@ def convert_to_training_data(
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
-    if do_rotation:
+    if not no_rotation:
         do_rotations(
             per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
         )
@@ -543,9 +545,9 @@ def convert_to_training_data(
         )
 
     # Doing scaling on jets, tracks, and clusters
-    do_rescaling(per_jet_training_data_dict, "jet")
-    do_rescaling(per_jet_training_data_dict["clusters"], "cluster")
-    do_rescaling(per_jet_training_data_dict["tracks"], "track")
+    # do_rescaling(per_jet_training_data_dict, "jet")
+    # do_rescaling(per_jet_training_data_dict["clusters"], "cluster")
+    # do_rescaling(per_jet_training_data_dict["tracks"], "track")
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
@@ -573,9 +575,11 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
                 compression="ZSTD",
                 compression_level=-7,
             )
-            logging.info(f"Writing file {file_index:03d} with in-memory size "
-                         f"{event_size/1_073_741_824:0.2f} GB and "
-                         f"{sum(len(e) for e in data_queue):,} jets.")
+            logging.info(
+                f"Writing file {file_index:03d} with in-memory size "
+                f"{event_size/1_073_741_824:0.2f} GB and "
+                f"{sum(len(e) for e in data_queue):,} jets."
+            )
             data_queue = []
             file_index += 1
             event_size = 0
@@ -592,7 +596,7 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
-        yield convert_to_training_data(ar, mc=config.mc, do_rotation=config.do_rotation)
+        yield convert_to_training_data(ar, mc=config.mc, no_rotation=config.no_rotation)
 
 
 def run_query(
