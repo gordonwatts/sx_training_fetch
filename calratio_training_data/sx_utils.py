@@ -22,6 +22,7 @@ def build_sx_spec(
     ds_name: str,
     prefer_local: bool = False,
     backend_name: Optional[str] = None,
+    n_files: Optional[int] = None,
 ):
     """Build a ServiceX spec from the given query and dataset."""
 
@@ -53,6 +54,7 @@ def build_sx_spec(
                 Dataset=dataset,
                 Query=query,
                 Codegen=codegen_name,
+                NFiles=n_files,
             ),
         ],
     )

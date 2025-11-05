@@ -57,6 +57,7 @@ class RunConfig:
     mc: bool = False
     do_rotation: bool = True
     sx_backend: Optional[str] = None
+    n_files: Optional[int] = None
 
 
 @dataclass
@@ -604,7 +605,11 @@ def run_query(
     from .sx_utils import build_sx_spec
 
     spec, backend_name, adaptor = build_sx_spec(
-        query, ds_name, config.run_locally, config.sx_backend
+        query,
+        ds_name,
+        prefer_local=config.run_locally,
+        backend_name=config.sx_backend,
+        n_files=config.n_files
     )
     if config.run_locally or backend_name == "local-backend":
         sx_result = sx_local.deliver(
