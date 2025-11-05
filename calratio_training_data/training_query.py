@@ -611,7 +611,12 @@ def run_query(
     from .sx_utils import build_sx_spec
 
     spec, use_local, backend_name, adaptor = build_sx_spec(
-        query, ds_name, config.run_locally, config.sx_backend, config.platform
+        query,
+        ds_name,
+        config.run_locally,
+        config.sx_backend,
+        config.n_files,
+        config.platform,
     )
     if use_local:
         sx_result = sx_local.deliver(

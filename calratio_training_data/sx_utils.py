@@ -1,3 +1,4 @@
+from typing import Optional
 from servicex import Sample, ServiceXSpec
 from servicex_local import install_sx_local, find_dataset, Platform
 

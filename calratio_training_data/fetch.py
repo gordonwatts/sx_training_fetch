@@ -1,9 +1,7 @@
 import logging
-import logging.handlers
 from typing import Optional
 
 import typer
-
 from servicex_local import Platform
 
 
@@ -71,13 +69,9 @@ def main(
     ),
     n_files: Optional[int] = typer.Option(
         None,
-        "--n-files", "-n",
+        "--n-files",
+        "-n",
         help="Number of files to process in the dataset. Default is to process all files.",
-    ),
-    platform: str = typer.Option(
-        "docker",
-        "--platform",
-        help="Container platform to use with local ServiceX (docker, singularity, or wsl2)",
     ),
     platform: str = typer.Option(
         "docker",
@@ -90,8 +84,8 @@ def main(
     """
     set_logging(int(verbosity))
     from calratio_training_data.training_query import (
-        fetch_training_data_to_file,
         RunConfig,
+        fetch_training_data_to_file,
     )
 
     if platform.lower() == "docker":
