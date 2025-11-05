@@ -79,6 +79,11 @@ def main(
         "--platform",
         help="Container platform to use with local ServiceX (docker, singularity, or wsl2)",
     ),
+    platform: str = typer.Option(
+        "docker",
+        "--platform",
+        help="Container platform to use with local ServiceX (docker, singularity, or wsl2)",
+    ),
 ):
     """
     Fetch training data for cal ratio.

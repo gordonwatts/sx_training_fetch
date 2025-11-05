@@ -1,22 +1,5 @@
-import logging
-import os
-import re
-from enum import Enum
-from pathlib import Path
-from typing import Optional, Tuple
-from urllib.parse import unquote, urlparse
-
-from servicex import Sample, ServiceXSpec, dataset
 from servicex import Sample, ServiceXSpec
 from servicex_local import install_sx_local, find_dataset, Platform
-
-
-class SXLocationOptions(Enum):
-    """Options for which backend we can use"""
-
-    mustUseLocal = "mustUseLocal"
-    mustUseRemote = "mustUseRemote"
-    anyLocation = "anyLocation"
 
 
 def build_sx_spec(
