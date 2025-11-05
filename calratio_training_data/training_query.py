@@ -42,6 +42,7 @@ from .cpp_xaod_utils import (
     cvt_to_raw_calocluster,
     jet_clean_llp,
     track_summary_value,
+    particle_radiates,
 )
 
 
@@ -127,9 +128,9 @@ def build_preselection():
             ],  # type: ignore
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
-            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles").Where(
-                lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
-            ),
+            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
+            .Where(lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51)
+            .Where(lambda p: not particle_radiates(p)),
         )
     )
 
@@ -391,7 +392,9 @@ def convert_to_training_data(
         np.float32,
     )
 
-    logging.warning("Jet Cluster Timing is ignored in cluster object build! TURN BACK ON")
+    logging.warning(
+        "Jet Cluster Timing is ignored in cluster object build! TURN BACK ON"
+    )
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -574,9 +577,11 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
                 compression="ZSTD",
                 compression_level=-7,
             )
-            logging.info(f"Writing file {file_index:03d} with in-memory size "
-                         f"{event_size/1_073_741_824:0.2f} GB and "
-                         f"{sum(len(e) for e in data_queue):,} jets.")
+            logging.info(
+                f"Writing file {file_index:03d} with in-memory size "
+                f"{event_size/1_073_741_824:0.2f} GB and "
+                f"{sum(len(e) for e in data_queue):,} jets."
+            )
             data_queue = []
             file_index += 1
             event_size = 0
@@ -609,7 +614,7 @@ def run_query(
         ds_name,
         prefer_local=config.run_locally,
         backend_name=config.sx_backend,
-        n_files=config.n_files
+        n_files=config.n_files,
     )
     if config.run_locally or backend_name == "local-backend":
         sx_result = sx_local.deliver(
