@@ -5,12 +5,11 @@ from func_adl import ObjectStream, func_adl_callable
 from func_adl_servicex_xaodr25.elementlink_datavector_xaod_iparticle__ import (
     ElementLink_DataVector_xAOD_IParticle__,
 )
+from func_adl_servicex_xaodr25.xaod import add_enum_info, xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
-from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
-
-from func_adl_servicex_xaodr25.xaod import xAOD, add_enum_info
-
+from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
+from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 
 T = TypeVar("T")
 
@@ -193,5 +192,51 @@ def jet_clean_llp(jet: Jet_v1) -> bool:
 
     Returns:
         bool: Did the jet pass?
+    """
+    ...
+
+
+def follow_radiation_callback(
+    s: ObjectStream[T], a: ast.Call
+) -> Tuple[ObjectStream[T], ast.Call]:
+    new_s = s.MetaData(
+        {
+            "metadata_type": "add_cpp_function",
+            "name": "follow_radiation",
+            "code": [
+                "auto result = bsm;",
+                "while(result->nChildren() > 0) {",
+                "  for (int i=0; i < result->nChildren(); ++i) {",
+                "    auto child = result->child(i);",
+                "    if (child->pdgId() == pdgid) {",
+                "      result = child;",
+                "      break;",
+                "    }",
+                "  }",
+                "}",
+            ],
+            "result": "result",
+            "include_files": [],
+            "arguments": ["bsm", "pdgid"],
+            "return_type": "TruthParticle_v1",
+        }
+    )
+    return new_s, a
+
+
+@func_adl_callable(follow_radiation_callback)
+def follow_radiation(bsm: TruthParticle_v1, pdgid: int) -> TruthParticle_v1:
+    """Follow the radiation chain of a truth particle to find the final state
+    particle with the given pdgid.
+
+    Works by looking at the daughters of the particle, and if one matches the pdgid,
+    it continues down that chain until no more matches are found.
+
+    Args:
+        bsm (TruthParticle_v1): The initial BSM particle.
+        pdgid (int): The PDG ID of the final state particle to follow.
+
+    Returns:
+        TruthParticle_v1: The final state particle with the specified PDG ID.
     """
     ...
