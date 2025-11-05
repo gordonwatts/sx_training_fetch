@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+from typing import Optional
 
 import typer
 
@@ -58,12 +59,13 @@ def main(
     do_rotation: bool = typer.Option(
         True,
         "--no_rotation",
-        help="Skips rotation step on cluster, track, mseg eta and phi variables. Without the flag the rotations are applied.",
+        help="Skips rotation step on cluster, track, mseg eta and phi variables. Without the flag "
+        "the rotations are applied.",
     ),
-    sx_backend: str = typer.Option(
-        "servicex",
+    sx_backend: Optional[str] = typer.Option(
+        None,
         "--sx-backend",
-        help="ServiceX backend name",
+        help="ServiceX backend Name. Default is to use what is in your `servicex.yaml` file.",
     ),
 ):
     """
