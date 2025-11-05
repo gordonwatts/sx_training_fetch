@@ -5,12 +5,11 @@ from func_adl import ObjectStream, func_adl_callable
 from func_adl_servicex_xaodr25.elementlink_datavector_xaod_iparticle__ import (
     ElementLink_DataVector_xAOD_IParticle__,
 )
+from func_adl_servicex_xaodr25.xaod import add_enum_info, xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
-from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
-
-from func_adl_servicex_xaodr25.xaod import xAOD, add_enum_info
-
+from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
+from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 
 T = TypeVar("T")
 
@@ -193,5 +192,51 @@ def jet_clean_llp(jet: Jet_v1) -> bool:
 
     Returns:
         bool: Did the jet pass?
+    """
+    ...
+
+
+def particle_radiates_callback(
+    s: ObjectStream[T], a: ast.Call
+) -> Tuple[ObjectStream[T], ast.Call]:
+    """
+    Follow the radiation chain of a truth particle to find the final state.
+    """
+    new_s = s.MetaData(
+        {
+            "metadata_type": "add_cpp_function",
+            "name": "particle_radiates",
+            "code": [
+                "bool result = false;",
+                "auto pdgid = p->pdgId();",
+                "for (int i=0; i < p->nChildren(); ++i) {",
+                "  auto child = p->child(i);",
+                "  if (child->pdgId() == pdgid) {",
+                "    result = true;",
+                "    break;",
+                "  }",
+                "}",
+            ],
+            "result": "result",
+            "include_files": [],
+            "arguments": ["p"],
+            "return_type": "bool",
+        }
+    )
+    return new_s, a
+
+
+@func_adl_callable(particle_radiates_callback)
+def particle_radiates(p: TruthParticle_v1) -> bool:
+    """Make sure that this particle does not radiate.
+
+    Scan its daughters and if any have the same pdgid, return false.
+
+    Args:
+        bsm (TruthParticle_v1): The initial BSM particle.
+        pdgid (int): The PDG ID of the final state particle to follow.
+
+    Returns:
+        bool: True if the particle does not radiate, False otherwise.
     """
     ...
