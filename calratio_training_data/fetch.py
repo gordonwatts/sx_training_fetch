@@ -67,6 +67,11 @@ def main(
         "--sx-backend",
         help="ServiceX backend Name. Default is to use what is in your `servicex.yaml` file.",
     ),
+    n_files: Optional[int] = typer.Option(
+        None,
+        "--n-files", "-n",
+        help="Number of files to process in the dataset. Default is to process all files.",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -84,6 +89,7 @@ def main(
         mc=mc,
         do_rotation=do_rotation,
         sx_backend=sx_backend,
+        n_files=n_files,
     )
     fetch_training_data_to_file(dataset, run_config)
 
