@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from math import sqrt
-from typing import Any, Dict, Generator
+from typing import Any, Dict, Generator, Optional
 
 import awkward as ak
 import uproot
@@ -56,7 +56,7 @@ class RunConfig:
     output_path: str = "training.parquet"
     mc: bool = False
     do_rotation: bool = True
-    sx_backend: str = "servicex"
+    sx_backend: Optional[str] = None
 
 
 @dataclass
