@@ -76,7 +76,8 @@ def main(
     platform: str = typer.Option(
         "docker",
         "--platform",
-        help="Container platform to use with local ServiceX (docker, singularity, or wsl2)",
+        help="Container platform to use when running with local ServiceX (docker, "
+        "singularity, or wsl2)",
     ),
 ):
     """
