@@ -18,7 +18,10 @@ def build_sx_spec(
     adaptor = None
 
     if use_local is not prefer_local:
-        raise ValueError(f"Unable to run dataset {ds_name} in prefered configuration.")
+        raise ValueError(
+            f"Unable to run dataset {ds_name} in preferred configuration. Did you forget "
+            "the `--local` flag?"
+        )
 
     # Second branch: decide on the backend.
 
