@@ -5,7 +5,10 @@ from typing import Optional
 import typer
 
 
-def set_logging(verbosity: int):
+app = typer.Typer()
+
+
+def set_logging(verbosity: int) -> None:
     """
     Set logging level based on verbosity.
 
@@ -25,9 +28,10 @@ def set_logging(verbosity: int):
         h.setLevel(level)
 
 
-def main(
+@app.command("fetch")
+def fetch_command(
     dataset: str = typer.Argument(..., help="The data source"),
-    verbosity=typer.Option(
+    verbosity: int = typer.Option(
         0,
         "--verbose",
         "-v",
@@ -69,7 +73,8 @@ def main(
     ),
     n_files: Optional[int] = typer.Option(
         None,
-        "--n-files", "-n",
+        "--n-files",
+        "-n",
         help="Number of files to process in the dataset. Default is to process all files.",
     ),
 ):
@@ -94,9 +99,16 @@ def main(
     fetch_training_data_to_file(dataset, run_config)
 
 
-def run_from_command():
+@app.command("training-file")
+def training_file_command() -> None:
+    """Print a simple greeting for the training file command."""
+
+    typer.echo("Hello World")
+
+
+def run_from_command() -> None:
     "Run from the command line - this is the default"
-    typer.run(main)
+    app()
 
 
 if __name__ == "__main__":
