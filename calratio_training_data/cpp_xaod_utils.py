@@ -196,47 +196,47 @@ def jet_clean_llp(jet: Jet_v1) -> bool:
     ...
 
 
-def follow_radiation_callback(
+def particle_radiates_callback(
     s: ObjectStream[T], a: ast.Call
 ) -> Tuple[ObjectStream[T], ast.Call]:
+    """
+    Follow the radiation chain of a truth particle to find the final state.
+    """
     new_s = s.MetaData(
         {
             "metadata_type": "add_cpp_function",
-            "name": "follow_radiation",
+            "name": "particle_radiates",
             "code": [
-                "auto result = bsm;",
-                "while(result->nChildren() > 0) {",
-                "  for (int i=0; i < result->nChildren(); ++i) {",
-                "    auto child = result->child(i);",
-                "    if (child->pdgId() == pdgid) {",
-                "      result = child;",
-                "      break;",
-                "    }",
+                "bool result = false;",
+                "auto pdgid = p->pdgId();",
+                "for (int i=0; i < p->nChildren(); ++i) {",
+                "  auto child = p->child(i);",
+                "  if (child->pdgId() == pdgid) {",
+                "    result = true;",
+                "    break;",
                 "  }",
                 "}",
             ],
             "result": "result",
             "include_files": [],
-            "arguments": ["bsm", "pdgid"],
-            "return_type": "TruthParticle_v1",
+            "arguments": ["p"],
+            "return_type": "bool",
         }
     )
     return new_s, a
 
 
-@func_adl_callable(follow_radiation_callback)
-def follow_radiation(bsm: TruthParticle_v1, pdgid: int) -> TruthParticle_v1:
-    """Follow the radiation chain of a truth particle to find the final state
-    particle with the given pdgid.
+@func_adl_callable(particle_radiates_callback)
+def particle_radiates(p: TruthParticle_v1) -> bool:
+    """Make sure that this particle does not radiate.
 
-    Works by looking at the daughters of the particle, and if one matches the pdgid,
-    it continues down that chain until no more matches are found.
+    Scan its daughters and if any have the same pdgid, return false.
 
     Args:
         bsm (TruthParticle_v1): The initial BSM particle.
         pdgid (int): The PDG ID of the final state particle to follow.
 
     Returns:
-        TruthParticle_v1: The final state particle with the specified PDG ID.
+        bool: True if the particle does not radiate, False otherwise.
     """
     ...
