@@ -78,5 +78,10 @@
     "ylabel",
     "yscale"
   ],
-  "jupyter.debugJustMyCode": false
+  "jupyter.debugJustMyCode": false,
+  "[python]": {
+    "editor.rulers": [
+      99
+    ]
+  },
 }
