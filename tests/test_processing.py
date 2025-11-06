@@ -45,7 +45,7 @@ def test_do_rotations_clusters():
                 {"pt": 4.0, "eta": 2.3, "phi": 2.28},
             ],
         ],
-        # with_name="Momentum3D",
+        with_name="Momentum3D",
     )
     do_rotations(cluster_array, "cluster", jet_array)
 
