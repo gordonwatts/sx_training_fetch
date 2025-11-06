@@ -3,11 +3,6 @@ import awkward as ak
 import numpy as np
 from vector._compute.planar.deltaphi import rectify
 
-from calratio_training_data.constants import (
-    min_jet_pt,
-    max_jet_pt,
-)
-
 
 def relative_angle(jets: ak.Array, objects: ak.Array):
     # Modifies in place the eta and phi to be relative to the jet axis
