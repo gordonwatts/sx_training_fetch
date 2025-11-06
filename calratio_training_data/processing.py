@@ -13,7 +13,7 @@ def relative_angle(jets: ak.Array, objects: ak.Array):
 def sort_by_pt(data: ak.Array) -> ak.Array:
     # Sorts the data in place by pT
     new_data_index = ak.argsort(data.pt, axis=1, ascending=False)
-    data[new_data_index]
+    return data[new_data_index]
 
 
 def do_rotations(data: ak.Array, datatype, jets: Optional[ak.Array] = None):
@@ -21,8 +21,6 @@ def do_rotations(data: ak.Array, datatype, jets: Optional[ak.Array] = None):
     Do rotations on clusters (tracks, msegs). Done to get the highest cluster (track, mseg) by pT
     is at the center. Ensures NN learns from a standardized set of jets.
     Assumed data is flattened to per jet (instead of per event).
-
-    WARNING: Data is rotated in place!!!
 
     Args:
         data (ak.Array): Data to be rotated, contained either clusters, tracks, or msegs
@@ -36,7 +34,7 @@ def do_rotations(data: ak.Array, datatype, jets: Optional[ak.Array] = None):
 
     if datatype == "cluster" or datatype == "track":
         # Sort the data if its a cluster or a track
-        sort_by_pt(data)
+        data = sort_by_pt(data)
         if datatype == "cluster":
             relative_angle(ak.firsts(data), data)
         if datatype == "track":
@@ -64,3 +62,4 @@ def do_rotations(data: ak.Array, datatype, jets: Optional[ak.Array] = None):
         data["phiPos"] = mseg_dphi_pos
         mseg_dphi_dir = rectify(np, data.phiDir - jets.phi)
         data["phiDir"] = mseg_dphi_dir
+    return data

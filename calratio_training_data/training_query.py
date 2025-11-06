@@ -536,11 +536,13 @@ def convert_to_training_data(
 
     # Doing rotations on tracks, clusters, msegs
     if rotation:
-        do_rotations(
+        per_jet_training_data_dict["tracks"] = do_rotations(
             per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
         )
-        do_rotations(per_jet_training_data_dict["clusters"], "cluster")
-        do_rotations(
+        per_jet_training_data_dict["clusters"] = do_rotations(
+            per_jet_training_data_dict["clusters"], "cluster"
+        )
+        per_jet_training_data_dict["msegs"] = do_rotations(
             per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
         )
 
