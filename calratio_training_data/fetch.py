@@ -60,7 +60,7 @@ def main(
         True,
         "--rotation/--no-rotation",
         help="Applies/does not apply rotations on cluster, track, mseg eta and phi variables. "
-        "Without the flag the rotations are applied.",
+        "Rotations applied by default.",
     ),
     sx_backend: Optional[str] = typer.Option(
         None,
