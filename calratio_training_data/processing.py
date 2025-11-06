@@ -1,8 +1,4 @@
-import logging
-from dataclasses import dataclass
-from math import sqrt
-from typing import Dict
-
+from typing import Optional
 import awkward as ak
 import numpy as np
 from vector._compute.planar.deltaphi import rectify
@@ -25,11 +21,13 @@ def sort_by_pt(data: ak.Array) -> ak.Array:
     data[new_data_index]
 
 
-def do_rotations(data: ak.Array, datatype, jets=None) -> ak.Array:
+def do_rotations(data: ak.Array, datatype, jets: Optional[ak.Array] = None):
     """
-    Do rotations on clusters (tracks, msegs). Done to get the highest cluster (track, mseg) by pT is
-    at the center. Ensures NN learns from a standardized set of jets.
+    Do rotations on clusters (tracks, msegs). Done to get the highest cluster (track, mseg) by pT
+    is at the center. Ensures NN learns from a standardized set of jets.
     Assumed data is flattened to per jet (instead of per event).
+
+    WARNING: Data is rotated in place!!!
 
     Args:
         data (ak.Array): Data to be rotated, contained either clusters, tracks, or msegs
@@ -47,6 +45,7 @@ def do_rotations(data: ak.Array, datatype, jets=None) -> ak.Array:
         if datatype == "cluster":
             relative_angle(data[:, 0], data)
         if datatype == "track":
+            assert jets is not None, "Jets must be provided for track rotation"
             relative_angle(jets, data)
 
         # eta flip
@@ -61,6 +60,7 @@ def do_rotations(data: ak.Array, datatype, jets=None) -> ak.Array:
 
     if datatype == "mseg" and data is not None:
         # msegs occasionally empty - check for that else it crashes
+        assert jets is not None, "Jets must be provided for mseg rotation"
         mseg_deta_pos = data.etaPos - jets.eta
         data["etaPos"] = mseg_deta_pos
         mseg_dphi_pos = rectify(np, data.phiPos - jets.phi)
@@ -69,9 +69,12 @@ def do_rotations(data: ak.Array, datatype, jets=None) -> ak.Array:
         data["phiDir"] = mseg_dphi_dir
 
 
-def do_rescaling(data: ak.Array, datatype) -> ak.Array:
+def do_rescaling(data: ak.Array, datatype):
     """
     Rescaling variables for NN training. Shouldn't be run on msegs.
+
+    NOTE: Data is rescaled in place!!!
+
     Args:
         data (ak.Array): Partially processed data
                          containing either clusters, jets, or tracks.
