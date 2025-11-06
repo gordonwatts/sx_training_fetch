@@ -33,8 +33,6 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
-    # min_jet_pt,
-    # max_jet_pt,
 )
 
 from .cpp_xaod_utils import (
