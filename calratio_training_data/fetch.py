@@ -58,7 +58,8 @@ def main(
     rotation: bool = typer.Option(
         True,
         "--rotation/--no-rotation",
-        help="Skips rotation step on cluster, track, mseg eta and phi variables. Without the flag the rotations are applied.",
+        help="Applies/does not apply rotations on cluster, track, mseg eta and phi variables. "
+        "Without the flag the rotations are applied.",
     ),
     sx_backend: str = typer.Option(
         "servicex",
