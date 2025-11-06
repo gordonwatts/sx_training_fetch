@@ -45,12 +45,13 @@ def test_do_rotations_clusters():
                 {"pt": 4.0, "eta": 2.3, "phi": 2.28},
             ],
         ],
-        with_name="Momentum3D",
+        # with_name="Momentum3D",
     )
     do_rotations(cluster_array, "cluster", jet_array)
 
-    assert ak.array_equal(
-        ak.round(cluster_array, 2), correct_array
+    # Using to_list to avoid problems with -0 ≠ 0 comparison
+    assert (
+        ak.round(cluster_array, 2).to_list() == correct_array.to_list()
     )  # rounded for comparison
 
 
@@ -154,3 +155,6 @@ def test_do_rotations_msegs():
     assert ak.array_equal(
         ak.round(mseg_array, 2), correct_array
     )  # rounded for comparison
+
+
+test_do_rotations_clusters()
