@@ -22,7 +22,7 @@ from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 
-from calratio_training_data.processing import do_rotations, do_rescaling
+from calratio_training_data.processing import do_rotations
 
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
@@ -543,11 +543,6 @@ def convert_to_training_data(
         do_rotations(
             per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
         )
-
-    # Doing scaling on jets, tracks, and clusters
-    # do_rescaling(per_jet_training_data_dict, "jet")
-    # do_rescaling(per_jet_training_data_dict["clusters"], "cluster")
-    # do_rescaling(per_jet_training_data_dict["tracks"], "track")
 
     # Finally, build the data we will write out!
     training_data = ak.zip(

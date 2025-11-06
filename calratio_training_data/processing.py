@@ -69,37 +69,3 @@ def do_rotations(data: ak.Array, datatype, jets=None) -> ak.Array:
         data["phiPos"] = mseg_dphi_pos
         mseg_dphi_dir = rectify(np, data.phiDir - jets.phi)
         data["phiDir"] = mseg_dphi_dir
-
-
-def do_rescaling(data: ak.Array, datatype) -> ak.Array:
-    """
-    Rescaling variables for NN training. Shouldn't be run on msegs.
-    Args:
-        data (ak.Array): Partially processed data
-                         containing either clusters, jets, or tracks.
-        datatype (str): The type of data being processed (e.g., "cluster", "jet", "track").
-    """
-
-    if datatype == "cluster":
-        # Rescaling cluster energy fraction
-        summed_energy = (
-            data.l1ecal
-            + data.l2ecal
-            + data.l3ecal
-            + data.l4ecal
-            + data.l1hcal
-            + data.l2hcal
-            + data.l3hcal
-            + data.l4hcal
-        )
-        for i in range(1, 5):
-            data[f"l{i}ecal"] = data[f"l{i}ecal"] / summed_energy
-            data[f"l{i}hcal"] = data[f"l{i}hcal"] / summed_energy
-
-    if datatype == "track":
-        # rescale track z0 - restricts distribution to be around 0
-        data["z0"] = data.z0 / 250
-
-    # Rescaling pT
-    sub_pt = data["pt"] - min_jet_pt
-    data["pt"] = sub_pt / (max_jet_pt - min_jet_pt)
