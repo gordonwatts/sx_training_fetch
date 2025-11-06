@@ -1,6 +1,6 @@
 import awkward as ak
 
-from calratio_training_data.processing import do_rescaling, do_rotations
+from calratio_training_data.processing import do_rotations
 
 
 def test_do_rotations_clusters():
@@ -49,8 +49,9 @@ def test_do_rotations_clusters():
     )
     do_rotations(cluster_array, "cluster", jet_array)
 
-    assert ak.array_equal(
-        ak.round(cluster_array, 2), correct_array
+    # Using to_list to avoid problems with -0 ≠ 0 comparison
+    assert (
+        ak.round(cluster_array, 2).to_list() == correct_array.to_list()
     )  # rounded for comparison
 
 
@@ -154,163 +155,3 @@ def test_do_rotations_msegs():
     assert ak.array_equal(
         ak.round(mseg_array, 2), correct_array
     )  # rounded for comparison
-
-
-def test_do_rescaling_clusters():
-    cluster_array = ak.Array(
-        [
-            [
-                {
-                    "pt": 10.0,
-                    "l1ecal": 0.5,
-                    "l2ecal": 1.0,
-                    "l3ecal": 0.4,
-                    "l4ecal": 1.3,
-                    "l1hcal": 2.3,
-                    "l2hcal": 0.23,
-                    "l3hcal": 8.2,
-                    "l4hcal": 9.1,
-                },
-                {
-                    "pt": 16.0,
-                    "l1ecal": 3.2,
-                    "l2ecal": 1.3,
-                    "l3ecal": 5.23,
-                    "l4ecal": 5.2,
-                    "l1hcal": 1.2,
-                    "l2hcal": 4.23,
-                    "l3hcal": 3.25,
-                    "l4hcal": 9.2,
-                },
-            ],
-            [
-                {
-                    "pt": 12.0,
-                    "l1ecal": 3.2,
-                    "l2ecal": 3.8,
-                    "l3ecal": 3.2,
-                    "l4ecal": 5.2,
-                    "l1hcal": 1.3,
-                    "l2hcal": 9.3,
-                    "l3hcal": 2.4,
-                    "l4hcal": 9.1,
-                },
-                {
-                    "pt": 9.0,
-                    "l1ecal": 1.2,
-                    "l2ecal": 0.9,
-                    "l3ecal": 2.23,
-                    "l4ecal": 5.43,
-                    "l1hcal": 7.32,
-                    "l2hcal": 2.12,
-                    "l3hcal": 8.23,
-                    "l4hcal": 5.52,
-                },
-            ],
-        ],
-        with_name="Momentum3D",
-    )
-
-    do_rescaling(cluster_array, "cluster")
-
-    correct_array = ak.Array(
-        [
-            [
-                {
-                    "l1ecal": 0.02,
-                    "l1hcal": 0.1,
-                    "l2ecal": 0.04,
-                    "l2hcal": 0.01,
-                    "l3ecal": 0.02,
-                    "l3hcal": 0.36,
-                    "l4ecal": 0.06,
-                    "l4hcal": 0.4,
-                    "pt": -0.07,
-                },
-                {
-                    "l1ecal": 0.1,
-                    "l1hcal": 0.04,
-                    "l2ecal": 0.04,
-                    "l2hcal": 0.13,
-                    "l3ecal": 0.16,
-                    "l3hcal": 0.1,
-                    "l4ecal": 0.16,
-                    "l4hcal": 0.28,
-                    "pt": -0.05,
-                },
-            ],
-            [
-                {
-                    "l1ecal": 0.09,
-                    "l1hcal": 0.03,
-                    "l2ecal": 0.1,
-                    "l2hcal": 0.25,
-                    "l3ecal": 0.09,
-                    "l3hcal": 0.06,
-                    "l4ecal": 0.14,
-                    "l4hcal": 0.24,
-                    "pt": -0.06,
-                },
-                {
-                    "l1ecal": 0.04,
-                    "l1hcal": 0.22,
-                    "l2ecal": 0.03,
-                    "l2hcal": 0.06,
-                    "l3ecal": 0.07,
-                    "l3hcal": 0.25,
-                    "l4ecal": 0.16,
-                    "l4hcal": 0.17,
-                    "pt": -0.07,
-                },
-            ],
-        ],
-        with_name="Momentum3D",
-    )
-
-    assert ak.array_equal(ak.round(cluster_array, 2), correct_array)
-
-
-def test_do_rescaling_tracks():
-    track_array = ak.Array(
-        [
-            [
-                {"pt": 10.0, "z0": 530},
-                {"pt": 5.0, "z0": 490},
-            ],
-            [
-                {"pt": 20.0, "z0": 500},
-                {"pt": 4.0, "z0": 550},
-            ],
-        ],
-        with_name="Momentum3D",
-    )
-
-    do_rescaling(track_array, "track")
-
-    correct_array = ak.Array(
-        [
-            [
-                {
-                    "z0": 2.12,
-                    "pt": -0.065,
-                },
-                {
-                    "z0": 1.96,
-                    "pt": -0.076,
-                },
-            ],
-            [
-                {
-                    "z0": 2,
-                    "pt": -0.043,
-                },
-                {
-                    "z0": 2.2,
-                    "pt": -0.078,
-                },
-            ],
-        ],
-        with_name="Momentum3D",
-    )
-
-    assert ak.array_equal(ak.round(track_array, 3), correct_array)

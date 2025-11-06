@@ -56,11 +56,11 @@ def main(
         help="Include LLP MC truth info (will crash if run on file without MC "
         "info!)",
     ),
-    do_rotation: bool = typer.Option(
+    rotation: bool = typer.Option(
         True,
-        "--no_rotation",
-        help="Skips rotation step on cluster, track, mseg eta and phi variables. Without the flag "
-        "the rotations are applied.",
+        "--rotation/--no-rotation",
+        help="Applies/does not apply rotations on cluster, track, mseg eta and phi variables. "
+        "Rotations applied by default.",
     ),
     sx_backend: Optional[str] = typer.Option(
         None,
@@ -87,7 +87,7 @@ def main(
         run_locally=local,
         output_path=output,
         mc=mc,
-        do_rotation=do_rotation,
+        rotation=rotation,
         sx_backend=sx_backend,
         n_files=n_files,
     )

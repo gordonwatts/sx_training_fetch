@@ -22,7 +22,7 @@ from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 
-from calratio_training_data.processing import do_rotations, do_rescaling
+from calratio_training_data.processing import do_rotations
 
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
@@ -33,8 +33,6 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
-    # min_jet_pt,
-    # max_jet_pt,
 )
 
 from .cpp_xaod_utils import (
@@ -56,7 +54,7 @@ class RunConfig:
     run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
-    do_rotation: bool = True
+    rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
 
@@ -319,7 +317,7 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], mc: bool = False, do_rotation: bool = True
+    data: Dict[str, ak.Array], mc: bool = False, rotation: bool = True
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -537,7 +535,7 @@ def convert_to_training_data(
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
-    if do_rotation:
+    if rotation:
         do_rotations(
             per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
         )
@@ -545,11 +543,6 @@ def convert_to_training_data(
         do_rotations(
             per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
         )
-
-    # Doing scaling on jets, tracks, and clusters
-    do_rescaling(per_jet_training_data_dict, "jet")
-    do_rescaling(per_jet_training_data_dict["clusters"], "cluster")
-    do_rescaling(per_jet_training_data_dict["tracks"], "track")
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
@@ -598,7 +591,7 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
-        yield convert_to_training_data(ar, mc=config.mc, do_rotation=config.do_rotation)
+        yield convert_to_training_data(ar, mc=config.mc, rotation=config.rotation)
 
 
 def run_query(
