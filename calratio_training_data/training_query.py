@@ -55,7 +55,7 @@ class RunConfig:
     run_locally: bool = False
     output_path: str = "training.parquet"
     mc: bool = False
-    no_rotation: bool = False
+    rotation: bool = True
     sx_backend: str = "servicex"
 
 
@@ -317,7 +317,7 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], mc: bool = False, no_rotation: bool = False
+    data: Dict[str, ak.Array], mc: bool = False, rotation: bool = True
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -535,7 +535,7 @@ def convert_to_training_data(
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
-    if not no_rotation:
+    if rotation:
         do_rotations(
             per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
         )
@@ -596,7 +596,7 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
-        yield convert_to_training_data(ar, mc=config.mc, no_rotation=config.no_rotation)
+        yield convert_to_training_data(ar, mc=config.mc, rotation=config.rotation)
 
 
 def run_query(
