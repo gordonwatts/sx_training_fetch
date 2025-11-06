@@ -155,6 +155,3 @@ def test_do_rotations_msegs():
     assert ak.array_equal(
         ak.round(mseg_array, 2), correct_array
     )  # rounded for comparison
-
-
-test_do_rotations_clusters()
