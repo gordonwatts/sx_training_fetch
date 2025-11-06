@@ -11,14 +11,11 @@ dependencies = [
     "awkward",
     "vector",
     "pyarrow",
-    "dask_awkward",
     "uproot",
-    "func_adl_xAOD",
-    "func_adl",
     "ServiceX-Local",
-    "servicex",
     "func_adl_servicex_xaodr25",
     "servicex-analysis-utils",
+    "jinja2",
 ]
 requires-python = ">=3.10"
 

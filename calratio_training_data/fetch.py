@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+from typing import Optional
 
 import typer
 
@@ -61,10 +62,15 @@ def main(
         help="Applies/does not apply rotations on cluster, track, mseg eta and phi variables. "
         "Without the flag the rotations are applied.",
     ),
-    sx_backend: str = typer.Option(
-        "servicex",
+    sx_backend: Optional[str] = typer.Option(
+        None,
         "--sx-backend",
-        help="ServiceX backend name",
+        help="ServiceX backend Name. Default is to use what is in your `servicex.yaml` file.",
+    ),
+    n_files: Optional[int] = typer.Option(
+        None,
+        "--n-files", "-n",
+        help="Number of files to process in the dataset. Default is to process all files.",
     ),
 ):
     """
@@ -83,6 +89,7 @@ def main(
         mc=mc,
         rotation=rotation,
         sx_backend=sx_backend,
+        n_files=n_files,
     )
     fetch_training_data_to_file(dataset, run_config)
 

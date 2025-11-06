@@ -15,8 +15,11 @@
     "cython",
     "DAOD",
     "datavector",
+    "deltaeta",
     "deltaphi",
+    "deta",
     "dmypy",
+    "dphi",
     "dsname",
     "ecal",
     "elementlink",
@@ -78,5 +81,10 @@
     "ylabel",
     "yscale"
   ],
-  "jupyter.debugJustMyCode": false
+  "jupyter.debugJustMyCode": false,
+  "[python]": {
+    "editor.rulers": [
+      99
+    ]
+  },
 }

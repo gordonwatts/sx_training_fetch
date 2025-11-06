@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from math import sqrt
-from typing import Any, Dict, Generator
+from typing import Any, Dict, Generator, Optional
 
 import awkward as ak
 import uproot
@@ -33,15 +33,16 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
-    min_jet_pt,
-    max_jet_pt,
+    # min_jet_pt,
+    # max_jet_pt,
 )
 
 from .cpp_xaod_utils import (
     add_jet_selection_tool,
     cvt_to_raw_calocluster,
-    jet_clean_llp,
+    # jet_clean_llp,
     track_summary_value,
+    particle_radiates,
 )
 
 
@@ -56,7 +57,8 @@ class RunConfig:
     output_path: str = "training.parquet"
     mc: bool = False
     rotation: bool = True
-    sx_backend: str = "servicex"
+    sx_backend: Optional[str] = None
+    n_files: Optional[int] = None
 
 
 @dataclass
@@ -126,9 +128,9 @@ def build_preselection():
             ],  # type: ignore
             all_tracks=e.TrackParticles("InDetTrackParticles"),
             topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
-            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles").Where(
-                lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
-            ),
+            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
+            .Where(lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51)
+            .Where(lambda p: not particle_radiates(p)),
         )
     )
 
@@ -603,7 +605,11 @@ def run_query(
     from .sx_utils import build_sx_spec
 
     spec, backend_name, adaptor = build_sx_spec(
-        query, ds_name, config.run_locally, config.sx_backend
+        query,
+        ds_name,
+        prefer_local=config.run_locally,
+        backend_name=config.sx_backend,
+        n_files=config.n_files,
     )
     if config.run_locally or backend_name == "local-backend":
         sx_result = sx_local.deliver(

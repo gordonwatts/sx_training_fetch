@@ -206,7 +206,7 @@ def test_build_sx_spec_remote_only(mocker):
     )
     spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
 
-    assert backend_name == "servicex"
+    assert backend_name is None
 
 
 def test_build_sx_spec_either(mocker):
@@ -220,7 +220,7 @@ def test_build_sx_spec_either(mocker):
     )
     spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
 
-    assert backend_name == "servicex"
+    assert backend_name is None
 
 
 def test_build_sx_spec_prefer_local(mocker):
