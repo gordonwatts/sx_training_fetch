@@ -1,6 +1,4 @@
-import pytest
 import awkward as ak
-import numpy as np
 
 from calratio_training_data.processing import do_rescaling, do_rotations
 
