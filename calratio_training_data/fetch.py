@@ -104,6 +104,7 @@ def fetch_command(
         rotation=rotation,
         sx_backend=sx_backend,
         n_files=n_files,
+        datatype=data_type,
     )
     fetch_training_data_to_file(dataset, run_config)
 

@@ -33,6 +33,7 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
+    EventLabels,
 )
 
 from .cpp_xaod_utils import (
@@ -57,6 +58,7 @@ class RunConfig:
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
+    datatype: str = "signal"
 
 
 @dataclass
@@ -317,7 +319,7 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], mc: bool = False, rotation: bool = True
+    data: Dict[str, ak.Array], datatype: str, mc: bool = False, rotation: bool = True
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -415,7 +417,7 @@ def convert_to_training_data(
     )
 
     # If we are doing signal, then we only want LLP's that are close to jets.
-    if mc:
+    if datatype == "signal":
         llps = ak.values_astype(
             ak.zip(
                 {
@@ -568,6 +570,20 @@ def convert_to_training_data(
             per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
         )
 
+    # Adding labels
+    if datatype == "signal":
+        per_jet_training_data_dict["label"] = [EventLabels.signal.value] * len(
+            per_jet_training_data_dict["pt"]
+        )
+    if datatype == "bib":
+        per_jet_training_data_dict["label"] = [EventLabels.BIB.value] * len(
+            per_jet_training_data_dict["pt"]
+        )
+    if datatype == "qcd":
+        per_jet_training_data_dict["label"] = [EventLabels.QCD.value] * len(
+            per_jet_training_data_dict["pt"]
+        )
+
     # Finally, build the data we will write out!
     training_data = ak.zip(
         per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
@@ -624,7 +640,9 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
-        yield convert_to_training_data(ar, mc=config.mc, rotation=config.rotation)
+        yield convert_to_training_data(
+            ar, datatype=config.datatype, mc=config.mc, rotation=config.rotation
+        )
 
 
 def run_query(
