@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
 from math import sqrt
-from re import L
 from typing import Any, Dict, Generator, Optional
 
 import awkward as ak
