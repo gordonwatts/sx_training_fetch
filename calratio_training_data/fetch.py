@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+from enum import Enum
 from typing import Optional
 
 import typer
@@ -28,8 +29,20 @@ def set_logging(verbosity: int) -> None:
         h.setLevel(level)
 
 
+class DataType(str, Enum):
+    """Allowed data types for the fetch command."""
+
+    SIGNAL = "signal"
+    QCD = "qcd"
+    DATA = "data"
+    BIB = "bib"
+
+
 @app.command("fetch")
 def fetch_command(
+    data_type: DataType = typer.Argument(
+        ..., help="Type of data to fetch (signal, qcd, data, bib)"
+    ),
     dataset: str = typer.Argument(..., help="The data source"),
     verbosity: int = typer.Option(
         0,
@@ -53,12 +66,6 @@ def fetch_command(
         "--output",
         "-o",
         help="Output file path",
-    ),
-    mc: bool = typer.Option(
-        False,
-        "--mc",
-        help="Include LLP MC truth info (will crash if run on file without MC "
-        "info!)",
     ),
     rotation: bool = typer.Option(
         True,
@@ -86,6 +93,8 @@ def fetch_command(
         fetch_training_data_to_file,
         RunConfig,
     )
+
+    mc: bool = data_type is DataType.SIGNAL
 
     run_config = RunConfig(
         ignore_cache=ignore_cache,
