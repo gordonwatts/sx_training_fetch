@@ -430,6 +430,12 @@ def convert_to_training_data(
             np.float32,
         )
 
+        if ak.count(llps) == 0:
+            logging.info(
+                f"No LLPs were found in a chunk of {len(data['jet_pt'])} events."
+            )
+            return ak.Array([])
+
         # Next make sure the LLP's decay in the calorimeter region.
         # if they are in the central region, then Lxy must be between LLP_Lxy_min and LLP_Lxy_max
         # if they are in the end-cap region, then Lz must be between LLP_Lz_min and LLP_Lz_max
@@ -442,6 +448,13 @@ def convert_to_training_data(
             & (abs(llps.Lz) < LLP_Lz_max)
         ]
 
+        if ak.count(llps) == 0:
+            logging.info(
+                "No LLPs decaying in the calorimeter region were found in a chunk "
+                f"of {len(data['jet_pt'])} events."
+            )
+            return ak.Array([])
+
         llp_jet_pairs = ak.cartesian(
             {
                 "jet": jets,
@@ -450,15 +463,20 @@ def convert_to_training_data(
             axis=1,
             nested=True,
         )
+
         delta_r_jet_llp = llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp)
         jets_near_llps_mask = ak.any(delta_r_jet_llp < LLP_JET_DELTA_R, axis=-1)
 
         # Window the jets (and clusters, which come pre-associated with the jets) to
         # only those near LLPs.
+        if ak.count(jets_near_llps_mask) == 0:
+            logging.info(
+                f"No LLPs near jets were found in a chunk of {len(data['jet_pt'])} events."
+            )
+            return ak.Array([])
+
         jets = jets[jets_near_llps_mask]
         clusters = clusters[jets_near_llps_mask]
-        if ak.count(jets) == 0:
-            raise ValueError("No jets found near LLPs.")
 
         # And for those jets, get a match LLP. Easiest is to re-run the matching.
         llp_jet_pairs = ak.cartesian(
@@ -473,6 +491,10 @@ def convert_to_training_data(
             llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
         )
         llp_match_jet = llps[llp_match_jet_index]
+
+    # If there are no jets, then we don't need to do any of this.
+    if len(jets) == 0:
+        return ak.Array([])  # type: ignore
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
@@ -531,7 +553,7 @@ def convert_to_training_data(
     )
 
     # And LLP's if we are doing MC.
-    if mc:
+    if mc and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
@@ -560,9 +582,11 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     data_queue = []
     file_index = 0
     event_size = 0
+    event_count = 0
     for r in result_list:
         data_queue.append(r)
         event_size += r.nbytes
+        event_count += len(r)
         if (event_size / 1_073_741_824) >= 4:  # 4 GB in-memory
             ak.to_parquet(
                 ak.concatenate(data_queue, axis=0),
@@ -580,12 +604,19 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
             event_size = 0
 
     if len(data_queue) > 0:
-        ak.to_parquet(
-            ak.concatenate(data_queue, axis=0),
-            config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
-            compression="ZSTD",
-            compression_level=-7,
-        )
+        full_file_data = ak.concatenate(data_queue, axis=0)
+        if ak.count(full_file_data) > 0:
+            ak.to_parquet(
+                full_file_data,
+                config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
+                compression="ZSTD",
+                compression_level=-7,
+            )
+
+    if event_count > 0:
+        logging.info(f"Wrote out a total of {event_count:,} jets to " f"files.")
+    else:
+        logging.warning("No jets were written out! Turn on logging to see why (-v)")
 
 
 def fetch_training_data(ds_name, config: RunConfig):
