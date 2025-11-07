@@ -35,3 +35,30 @@ class EventLabels(Enum):
     QCD = 0
     signal = 1
     BIB = 2
+
+
+# Triggers for BIB. These are in pairs. The first is the inclusive trigger
+# that should have fired, the second is the bib removal trigger that should
+# not have fired.
+BIB_TRIGGERS = [
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1jJ160",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1jJ160",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU140",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU140",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU80",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU80",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU60_EMPTY",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU60_EMPTY",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU60_UNPAIRED_ISO",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU60_UNPAIRED_ISO",
+    ),
+]
