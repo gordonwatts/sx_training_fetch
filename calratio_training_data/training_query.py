@@ -455,24 +455,35 @@ def convert_to_training_data(
 
         # Window the jets (and clusters, which come pre-associated with the jets) to
         # only those near LLPs.
-        jets = jets[jets_near_llps_mask]
-        clusters = clusters[jets_near_llps_mask]
-        if ak.count(jets) == 0:
-            raise ValueError("No jets found near LLPs.")
+        if len(jets_near_llps_mask) == 0:
+            logging.warning(
+                f"No LLPs were found in a chunk of {len(data["jet_pt"])} events."
+            )
+            jets = ak.Array([])
+            clusters = ak.Array([])
+        else:
+            jets = jets[jets_near_llps_mask]
+            clusters = clusters[jets_near_llps_mask]
+            if ak.count(jets) == 0:
+                raise ValueError("No jets found near LLPs.")
 
-        # And for those jets, get a match LLP. Easiest is to re-run the matching.
-        llp_jet_pairs = ak.cartesian(
-            {
-                "jet": jets,
-                "llp": llps,
-            },
-            axis=1,
-            nested=True,
-        )
-        llp_match_jet_index = ak.argmin(
-            llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
-        )
-        llp_match_jet = llps[llp_match_jet_index]
+            # And for those jets, get a match LLP. Easiest is to re-run the matching.
+            llp_jet_pairs = ak.cartesian(
+                {
+                    "jet": jets,
+                    "llp": llps,
+                },
+                axis=1,
+                nested=True,
+            )
+            llp_match_jet_index = ak.argmin(
+                llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
+            )
+            llp_match_jet = llps[llp_match_jet_index]
+
+    # If there are no jets, then we don't need to do any of this.
+    if len(jets) == 0:
+        return ak.Array([])  # type: ignore
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
@@ -531,7 +542,7 @@ def convert_to_training_data(
     )
 
     # And LLP's if we are doing MC.
-    if mc:
+    if mc and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
