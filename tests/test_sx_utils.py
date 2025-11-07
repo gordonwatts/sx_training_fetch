@@ -2,9 +2,10 @@ from pathlib import Path
 
 import pytest
 from calratio_training_data.sx_utils import (
-    find_dataset,
     SXLocationOptions,
     build_sx_spec,
+    extract_run_number_and_name,
+    find_dataset,
 )
 from servicex import dataset
 
@@ -190,9 +191,16 @@ def test_build_sx_spec_local(mocker):
             SXLocationOptions.mustUseLocal,
         ),
     )
-    spec, backend_name, adaptor = build_sx_spec("my_query", "a_ds")
+    did = (
+        "mc23_13p6TeV:mc23_13p6TeV.513109."
+        "MGPy8EG_Zmumu_FxFx3jHT2bias_SW_CFilterBVeto.deriv.DAOD_PHYSLITE"
+    )
+    spec, backend_name, adaptor = build_sx_spec("my_query", did)
 
     assert backend_name == "local-backend"
+    assert spec.Sample[0].Name == (
+        "calratio_513109_MGPy8EG_Zmumu_FxFx3jHT2bias_SW_CFilterBVeto"
+    )
 
 
 def test_build_sx_spec_remote_only(mocker):
@@ -252,3 +260,48 @@ def test_build_sx_spec_prefer_local_remote_forced(mocker):
     )
 
     assert backend_name == "fork.now"
+
+
+def test_build_sx_spec_sample_name_without_run(mocker):
+    mocker.patch(
+        "calratio_training_data.sx_utils.find_dataset",
+        return_value=(
+            dataset.FileList(files=["dummy_file.root"]),
+            SXLocationOptions.mustUseLocal,
+        ),
+    )
+
+    spec, _, _ = build_sx_spec("my_query", "/data/local/file.root")
+
+    assert spec.Sample[0].Name == "calratio_/data/local/file.root"
+
+
+def test_extract_run_number_and_name_with_scope():
+    did = (
+        "mc23_13p6TeV:mc23_13p6TeV.513109."
+        "MGPy8EG_Zmumu_FxFx3jHT2bias_SW_CFilterBVeto.deriv.DAOD_PHYSLITE"
+    )
+
+    run_number, dataset_name = extract_run_number_and_name(did)
+
+    assert run_number == "513109"
+    assert dataset_name == "MGPy8EG_Zmumu_FxFx3jHT2bias_SW_CFilterBVeto"
+
+
+def test_extract_run_number_and_name_without_scope():
+    did = (
+        "mc23_13p6TeV.513109."
+        "MGPy8EG_Zmumu_FxFx3jHT2bias_SW_CFilterBVeto.deriv.DAOD_PHYSLITE"
+    )
+
+    run_number, dataset_name = extract_run_number_and_name(did)
+
+    assert run_number == "513109"
+    assert dataset_name == "MGPy8EG_Zmumu_FxFx3jHT2bias_SW_CFilterBVeto"
+
+
+def test_extract_run_number_and_name_failure():
+    run_number, dataset_name = extract_run_number_and_name("/data/local/file.root")
+
+    assert run_number is None
+    assert dataset_name == "/data/local/file.root"[:30]
