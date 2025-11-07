@@ -430,7 +430,7 @@ def convert_to_training_data(
             np.float32,
         )
 
-        if len(llps) == 0:
+        if ak.count(llps) == 0:
             logging.info(
                 f"No LLPs were found in a chunk of {len(data['jet_pt'])} events."
             )
@@ -448,7 +448,7 @@ def convert_to_training_data(
             & (abs(llps.Lz) < LLP_Lz_max)
         ]
 
-        if len(llps) == 0:
+        if ak.count(llps) == 0:
             logging.info(
                 "No LLPs decaying in the calorimeter region were found in a chunk "
                 f"of {len(data['jet_pt'])} events."
@@ -469,7 +469,7 @@ def convert_to_training_data(
 
         # Window the jets (and clusters, which come pre-associated with the jets) to
         # only those near LLPs.
-        if len(jets_near_llps_mask) == 0:
+        if ak.count(jets_near_llps_mask) == 0:
             logging.info(
                 f"No LLPs near jets were found in a chunk of {len(data['jet_pt'])} events."
             )
@@ -604,12 +604,14 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
             event_size = 0
 
     if len(data_queue) > 0:
-        ak.to_parquet(
-            ak.concatenate(data_queue, axis=0),
-            config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
-            compression="ZSTD",
-            compression_level=-7,
-        )
+        full_file_data = ak.concatenate(data_queue, axis=0)
+        if ak.count(full_file_data) > 0:
+            ak.to_parquet(
+                full_file_data,
+                config.output_path.replace(".parquet", f"_{file_index:03d}.parquet"),
+                compression="ZSTD",
+                compression_level=-7,
+            )
 
     if event_count > 0:
         logging.info(f"Wrote out a total of {event_count:,} jets to " f"files.")
