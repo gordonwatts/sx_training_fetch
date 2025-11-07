@@ -20,7 +20,7 @@ dependencies = [
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-dev = ["black", "typer", "pytest", "pytest-mock"]
+dev = ["black", "typer", "pytest", "pytest-mock", "pytest-cov"]
 notebook = ["jupyterlab", "ipywidgets", "hist", "mplhep", "scipy", "pandas"]
 
 [project.scripts]
