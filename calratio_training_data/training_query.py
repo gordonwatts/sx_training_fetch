@@ -625,7 +625,8 @@ def run_query(
         raise ValueError("No result from ServiceX!")
 
     entries = 0
-    for file in sx_result["MySample"]:
+    sample_name = spec.Sample[0].Name  # type: ignore
+    for file in sx_result[sample_name]:
         f_data = uproot.open(file)["atlas_xaod_tree"].arrays()  # type: ignore
         entries += len(f_data)
         yield f_data  # type: ignore
