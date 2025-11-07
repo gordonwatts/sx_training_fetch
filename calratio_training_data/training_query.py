@@ -582,9 +582,11 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     data_queue = []
     file_index = 0
     event_size = 0
+    event_count = 0
     for r in result_list:
         data_queue.append(r)
         event_size += r.nbytes
+        event_count += len(r)
         if (event_size / 1_073_741_824) >= 4:  # 4 GB in-memory
             ak.to_parquet(
                 ak.concatenate(data_queue, axis=0),
@@ -608,6 +610,11 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
             compression="ZSTD",
             compression_level=-7,
         )
+
+    if event_count > 0:
+        logging.info(f"Wrote out a total of {event_count:,} jets to " f"files.")
+    else:
+        logging.warning("No jets were written out! Turn on logging to see why (-v)")
 
 
 def fetch_training_data(ds_name, config: RunConfig):
