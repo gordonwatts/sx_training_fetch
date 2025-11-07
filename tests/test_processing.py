@@ -9,10 +9,10 @@ def test_do_rotations_clusters():
         [
             [
                 {"pt": 10.0, "eta": 0.5, "phi": 1.0},
-                {"pt": 5.0, "eta": 2.3, "phi": 2.3},
+                {"pt": 15.0, "eta": 2.3, "phi": 2.3},
             ],
             [
-                {"pt": 20.0, "eta": -2.0, "phi": 2.1},
+                {"pt": 2.0, "eta": -2.0, "phi": 2.1},
                 {"pt": 4.0, "eta": 0.3, "phi": 6.1},
             ],
         ],
@@ -37,17 +37,22 @@ def test_do_rotations_clusters():
     correct_array = ak.Array(
         [
             [
-                {"pt": 10.0, "eta": 0, "phi": 0},
-                {"pt": 5.0, "eta": 1.8, "phi": 1.3},
+                {"pt": 15.0, "eta": 0, "phi": 0},
+                {"pt": 10.0, "eta": 1.8, "phi": 1.3},
             ],
             [
-                {"pt": 20.0, "eta": 0, "phi": 0},
-                {"pt": 4.0, "eta": 2.3, "phi": 2.28},
+                {"pt": 4.0, "eta": 0, "phi": 0},
+                {"pt": 2.0, "eta": 2.3, "phi": 2.28},
             ],
         ],
         with_name="Momentum3D",
     )
-    do_rotations(cluster_array, "cluster", jet_array)
+    cluster_array = do_rotations(cluster_array, "cluster", jet_array)
+
+    # Asserting the pT is correctly sorted
+    assert ak.all(
+        cluster_array.pt == ak.sort(cluster_array.pt, axis=-1, ascending=False)
+    )
 
     # Using to_list to avoid problems with -0 ≠ 0 comparison
     assert (
@@ -59,12 +64,12 @@ def test_do_rotations_tracks():
     track_array = ak.Array(
         [
             [
-                {"eta": 0.9, "phi": 8.9, "pt": 10.0},
-                {"eta": 3.1, "phi": -1.3, "pt": 5.0},
+                {"eta": 0.9, "phi": 8.9, "pt": 5.0},
+                {"eta": 3.1, "phi": -1.3, "pt": 15.0},
             ],
             [
-                {"eta": -2.4, "phi": 1.43, "pt": 20.0},
-                {"eta": 1.42, "phi": 4.23, "pt": 4.0},
+                {"eta": -2.4, "phi": 1.43, "pt": 2.0},
+                {"eta": 1.42, "phi": 4.23, "pt": 14.0},
             ],
         ],
         with_name="Momentum3D",
@@ -86,21 +91,24 @@ def test_do_rotations_tracks():
         with_name="Momentum3D",
     )
 
-    do_rotations(track_array, "track", jet_array)
+    track_array = do_rotations(track_array, "track", jet_array)
 
     correct_array = ak.Array(
         [
             [
-                {"pt": 10.0, "eta": 0.4, "phi": 1.42},
-                {"pt": 5, "eta": 2.6, "phi": -2.5},
+                {"pt": 15.0, "eta": 2.6, "phi": 2.5},
+                {"pt": 5, "eta": 0.4, "phi": -1.42},
             ],
             [
-                {"pt": 20.0, "eta": 1.3, "phi": 1.37},
-                {"pt": 4.0, "eta": -2.52, "phi": -1.43},
+                {"pt": 14, "eta": 2.52, "phi": 1.43},
+                {"pt": 2, "eta": -1.3, "phi": -1.37},
             ],
         ],
         with_name="Momentum3D",
     )
+
+    # Asserting the pT is correctly sorted
+    assert ak.all(track_array.pt == ak.sort(track_array.pt, axis=-1, ascending=False))
 
     assert ak.array_equal(
         ak.round(track_array, 2), correct_array
@@ -137,7 +145,7 @@ def test_do_rotations_msegs():
         with_name="Momentum3D",
     )
 
-    do_rotations(mseg_array, "mseg", jet_array)
+    mseg_array = do_rotations(mseg_array, "mseg", jet_array)
 
     correct_array = ak.Array(
         [
