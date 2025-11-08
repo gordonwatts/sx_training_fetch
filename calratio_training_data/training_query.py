@@ -54,7 +54,6 @@ class RunConfig:
     ignore_cache: bool = False
     run_locally: bool = False
     output_path: str = "training.parquet"
-    mc: bool = False
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
@@ -322,14 +321,15 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], datatype: str, mc: bool = False, rotation: bool = True
+    data: Dict[str, ak.Array], datatype: str, rotation: bool = True
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
     Args:
         raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
-        mc (bool): If True, include LLP info.
+        datatype (str): Type of data we are using, given by required command
+                        line input.
 
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
@@ -557,7 +557,7 @@ def convert_to_training_data(
         axis=1,
     )
 
-    # And LLP's if we are doing MC.
+    # And LLP's if we are doing signal
     if datatype == "signal" and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
@@ -644,7 +644,7 @@ def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
         yield convert_to_training_data(
-            ar, datatype=config.datatype, mc=config.mc, rotation=config.rotation
+            ar, datatype=config.datatype, rotation=config.rotation
         )
 
 
