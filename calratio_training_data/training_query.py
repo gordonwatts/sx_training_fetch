@@ -46,6 +46,8 @@ from .cpp_xaod_utils import (
     particle_radiates,
 )
 
+from calratio_training_data.fetch import DataType
+
 
 vector.register_awkward()
 
@@ -59,7 +61,7 @@ class RunConfig:
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
-    datatype: str = "signal"
+    datatype: str = DataType.SIGNAL.value
 
 
 @dataclass
