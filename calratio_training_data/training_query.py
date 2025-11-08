@@ -34,6 +34,8 @@ from calratio_training_data.constants import (
     LLP_Lz_max,
     LLP_Lz_min,
     EventLabels,
+    min_jet_pt,
+    max_jet_pt,
 )
 
 from .cpp_xaod_utils import (
@@ -87,7 +89,9 @@ logging.warning("Jet Cleanup Is Turned Off - TURN BACK ON")
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return jet.pt() / 1000.0 > 40.0 and abs(jet.eta()) < 2.5  # and jet_clean_llp(jet)
+    return (jet.pt() / 1000.0 > min_jet_pt and jet.pt() / 1000.0 < max_jet_pt) and abs(
+        jet.eta()
+    ) < 2.5  # and jet_clean_llp(jet)
 
 
 def build_preselection():
