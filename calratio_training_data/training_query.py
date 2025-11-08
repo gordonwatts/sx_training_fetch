@@ -61,7 +61,7 @@ class RunConfig:
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
-    datatype: str = DataType.SIGNAL.value
+    datatype: str = DataType.SIGNAL
 
 
 @dataclass
@@ -91,7 +91,7 @@ logging.warning("Jet Cleanup Is Turned Off - TURN BACK ON")
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return (jet.pt() / 1000.0 > min_jet_pt and jet.pt() / 1000.0 < max_jet_pt) and abs(
+    return (jet.pt() / 1000.0 > 40 and jet.pt() / 1000.0 < 500) and abs(
         jet.eta()
     ) < 2.5  # and jet_clean_llp(jet)
 
@@ -163,7 +163,7 @@ def fetch_raw_training_data(
     query_preselection = build_preselection()
 
     # Dictionary requires a constant test
-    is_signal = config.datatype.value == "signal"
+    is_signal = config.datatype == DataType.SIGNAL
 
     # Query the run number, etc.
     logging.warning("Jet Cluster Timing is ignored! TURN BACK ON")
@@ -327,14 +327,14 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], datatype: str, rotation: bool = True
+    data: Dict[str, ak.Array], datatype: DataType, rotation: bool = True
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
     Args:
         raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
-        datatype (str): Type of data we are using, given by required command
+        datatype (DataType): Type of data we are using, given by required command
                         line input.
 
     Returns:
@@ -426,7 +426,7 @@ def convert_to_training_data(
     )
 
     # If we are doing signal, then we only want LLP's that are close to jets.
-    if datatype == "signal":
+    if datatype == DataType.SIGNAL:
         llps = ak.values_astype(
             ak.zip(
                 {
@@ -536,7 +536,7 @@ def convert_to_training_data(
     per_jet_training_data_dict["eventNumber"] = ak.flatten(
         ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
     )
-    if datatype == "signal" or datatype == "qcd":
+    if datatype == DataType.SIGNAL or datatype == DataType.QCD:
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
@@ -564,7 +564,7 @@ def convert_to_training_data(
     )
 
     # And LLP's if we are doing signal
-    if datatype == "signal" and len(jets) > 0:
+    if datatype == DataType.SIGNAL and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
@@ -580,15 +580,15 @@ def convert_to_training_data(
         )
 
     # Adding labels
-    if datatype == "signal":
+    if datatype == DataType.SIGNAL:
         per_jet_training_data_dict["label"] = [EventLabels.signal.value] * len(
             per_jet_training_data_dict["pt"]
         )
-    if datatype == "bib":
+    if datatype == DataType.BIB:
         per_jet_training_data_dict["label"] = [EventLabels.BIB.value] * len(
             per_jet_training_data_dict["pt"]
         )
-    if datatype == "qcd":
+    if datatype == DataType.QCD:
         per_jet_training_data_dict["label"] = [EventLabels.QCD.value] * len(
             per_jet_training_data_dict["pt"]
         )
