@@ -94,16 +94,14 @@ def fetch_command(
         RunConfig,
     )
 
-    mc: bool = data_type is DataType.SIGNAL
-
     run_config = RunConfig(
         ignore_cache=ignore_cache,
         run_locally=local,
         output_path=output,
-        mc=mc,
         rotation=rotation,
         sx_backend=sx_backend,
         n_files=n_files,
+        datatype=data_type,
     )
     fetch_training_data_to_file(dataset, run_config)
 

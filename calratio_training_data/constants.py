@@ -1,3 +1,5 @@
+from enum import Enum
+
 # The jet-track delta R for inclusion
 JET_TRACK_DELTA_R = 0.2
 
@@ -25,3 +27,11 @@ LLP_Lz_max = 6000
 # Used for rescaling clus/track/jet pT
 min_jet_pt = 40  # GeV
 max_jet_pt = 500  # GeV
+
+
+class EventLabels(Enum):
+    "The magic numbers for data labeling"
+
+    QCD = 0
+    signal = 1
+    BIB = 2

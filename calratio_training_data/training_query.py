@@ -33,8 +33,7 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
-    min_jet_pt,
-    max_jet_pt,
+    EventLabels,
 )
 
 from .cpp_xaod_utils import (
@@ -44,6 +43,8 @@ from .cpp_xaod_utils import (
     track_summary_value,
     particle_radiates,
 )
+
+from calratio_training_data.fetch import DataType
 
 
 vector.register_awkward()
@@ -55,10 +56,10 @@ class RunConfig:
     ignore_cache: bool = False
     run_locally: bool = False
     output_path: str = "training.parquet"
-    mc: bool = False
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
+    datatype: str = DataType.SIGNAL
 
 
 @dataclass
@@ -88,7 +89,7 @@ logging.warning("Jet Cleanup Is Turned Off - TURN BACK ON")
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return (jet.pt() / 1000.0 > min_jet_pt and jet.pt() / 1000.0 < max_jet_pt) and abs(
+    return (jet.pt() / 1000.0 > 40 and jet.pt() / 1000.0 < 500) and abs(
         jet.eta()
     ) < 2.5  # and jet_clean_llp(jet)
 
@@ -158,6 +159,9 @@ def fetch_raw_training_data(
     """
     # Get the base query
     query_preselection = build_preselection()
+
+    # Dictionary requires a constant test
+    is_signal = config.datatype == DataType.SIGNAL
 
     # Query the run number, etc.
     logging.warning("Jet Cluster Timing is ignored! TURN BACK ON")
@@ -311,7 +315,7 @@ def fetch_raw_training_data(
                         for p in e.bsm_particles
                     ],
                 }
-                if config.mc
+                if is_signal
                 else {}
             ),
         }
@@ -321,14 +325,15 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], mc: bool = False, rotation: bool = True
+    data: Dict[str, ak.Array], datatype: DataType, rotation: bool = True
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
 
     Args:
         raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
-        mc (bool): If True, include LLP info.
+        datatype (DataType): Type of data we are using, given by required command
+                        line input.
 
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
@@ -419,7 +424,7 @@ def convert_to_training_data(
     )
 
     # If we are doing signal, then we only want LLP's that are close to jets.
-    if mc:
+    if datatype == DataType.SIGNAL:
         llps = ak.values_astype(
             ak.zip(
                 {
@@ -529,7 +534,7 @@ def convert_to_training_data(
     per_jet_training_data_dict["eventNumber"] = ak.flatten(
         ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
     )
-    if mc:
+    if datatype == DataType.SIGNAL or datatype == DataType.QCD:
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
@@ -556,8 +561,8 @@ def convert_to_training_data(
         axis=1,
     )
 
-    # And LLP's if we are doing MC.
-    if mc and len(jets) > 0:
+    # And LLP's if we are doing signal
+    if datatype == DataType.SIGNAL and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
@@ -570,6 +575,20 @@ def convert_to_training_data(
         )
         per_jet_training_data_dict["msegs"] = do_rotations(
             per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
+        )
+
+    # Adding labels
+    if datatype == DataType.SIGNAL:
+        per_jet_training_data_dict["label"] = [EventLabels.signal.value] * len(
+            per_jet_training_data_dict["pt"]
+        )
+    if datatype == DataType.BIB:
+        per_jet_training_data_dict["label"] = [EventLabels.BIB.value] * len(
+            per_jet_training_data_dict["pt"]
+        )
+    if datatype == DataType.QCD:
+        per_jet_training_data_dict["label"] = [EventLabels.QCD.value] * len(
+            per_jet_training_data_dict["pt"]
         )
 
     # Finally, build the data we will write out!
@@ -628,7 +647,9 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
-        yield convert_to_training_data(ar, mc=config.mc, rotation=config.rotation)
+        yield convert_to_training_data(
+            ar, datatype=config.datatype, rotation=config.rotation
+        )
 
 
 def run_query(
