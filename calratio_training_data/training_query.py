@@ -157,6 +157,9 @@ def fetch_raw_training_data(
     # Get the base query
     query_preselection = build_preselection()
 
+    # Dictionary requires a constant test
+    is_signal = config.datatype.value == "signal"
+
     # Query the run number, etc.
     logging.warning("Jet Cluster Timing is ignored! TURN BACK ON")
     query = query_preselection.Select(
@@ -309,7 +312,7 @@ def fetch_raw_training_data(
                         for p in e.bsm_particles
                     ],
                 }
-                if config.mc
+                if is_signal
                 else {}
             ),
         }
@@ -527,7 +530,7 @@ def convert_to_training_data(
     per_jet_training_data_dict["eventNumber"] = ak.flatten(
         ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
     )
-    if mc:
+    if datatype == "signal" or datatype == "qcd":
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
@@ -555,7 +558,7 @@ def convert_to_training_data(
     )
 
     # And LLP's if we are doing MC.
-    if mc and len(jets) > 0:
+    if datatype == "signal" and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
     # Doing rotations on tracks, clusters, msegs
