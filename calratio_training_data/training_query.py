@@ -59,7 +59,7 @@ class RunConfig:
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
-    datatype: str = DataType.SIGNAL
+    datatype: DataType = DataType.SIGNAL
 
 
 @dataclass
