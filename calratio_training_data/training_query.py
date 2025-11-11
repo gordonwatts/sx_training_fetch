@@ -402,6 +402,7 @@ def convert_to_training_data(
     logging.warning(
         "Jet Cluster Timing is ignored in cluster object build! TURN BACK ON"
     )
+
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -568,7 +569,7 @@ def convert_to_training_data(
     if datatype == DataType.SIGNAL and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
-    # Using mask to remove jets with no clusters, the
+    # Using mask to remove jets with no clusters
     counts = ak.num(per_jet_training_data_dict["clusters"].pt)
     empty_mask = counts > 0
 
