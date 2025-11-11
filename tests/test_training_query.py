@@ -150,7 +150,7 @@ def test_convert_to_training_no_llps():
     raw_data = ak.Array([raw_data_dict])[0]
 
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL.value, rotation=False)
+    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
@@ -222,7 +222,7 @@ def test_convert_to_training_no_near_llps():
     raw_data = ak.Array([raw_data_dict])[0]
 
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL.value, rotation=False)
+    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
