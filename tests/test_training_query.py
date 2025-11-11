@@ -41,17 +41,17 @@ def test_convert_to_training_data_mc_no_rotation():
         "MSeg_t0": ak.Array([[0.0, 1.0]]),
         "MSeg_chiSquared": ak.Array([[1.2, 1.5]]),
         # Clusters - nested list matching jets (2 jets, each with 2 clusters)
-        "clus_eta": ak.Array([[0.5, 0.6, 1.2, 1.3]]),
-        "clus_phi": ak.Array([[1.0, 1.1, 2.0, 2.1]]),
-        "clus_pt": ak.Array([[5.0, 6.0, 7.0, 8.0]]),
-        "clus_l1hcal": ak.Array([[100.0, 110.0, 120.0, 130.0]]),
-        "clus_l2hcal": ak.Array([[200.0, 210.0, 220.0, 230.0]]),
-        "clus_l3hcal": ak.Array([[300.0, 310.0, 320.0, 330.0]]),
-        "clus_l4hcal": ak.Array([[400.0, 410.0, 420.0, 430.0]]),
-        "clus_l1ecal": ak.Array([[500.0, 510.0, 520.0, 530.0]]),
-        "clus_l2ecal": ak.Array([[600.0, 610.0, 620.0, 630.0]]),
-        "clus_l3ecal": ak.Array([[700.0, 710.0, 720.0, 730.0]]),
-        "clus_l4ecal": ak.Array([[800.0, 810.0, 820.0, 830.0]]),
+        "clus_eta": ak.Array([[[0.5, 0.6, 1.2, 1.3]]]),
+        "clus_phi": ak.Array([[[1.0, 1.1, 2.0, 2.1]]]),
+        "clus_pt": ak.Array([[[5.0, 6.0, 7.0, 8.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0, 110.0, 120.0, 130.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0, 210.0, 220.0, 230.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0, 310.0, 320.0, 330.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0, 410.0, 420.0, 430.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0, 510.0, 520.0, 530.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0, 610.0, 620.0, 630.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0, 710.0, 720.0, 730.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0, 810.0, 820.0, 830.0]]]),
         # LLP truth particles - 1 LLP in the event, close to first jet
         # First jet is at (eta=0.5, phi=1.0), so LLP should be nearby (deltaR < 0.4)
         # Also Lxy must be between 1200-4000 for central region (eta < 1.4)
@@ -67,7 +67,7 @@ def test_convert_to_training_data_mc_no_rotation():
     raw_data = ak.Array([raw_data_dict])[0]
 
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL.value, rotation=False)
+    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
@@ -126,17 +126,17 @@ def test_convert_to_training_no_llps():
         "MSeg_t0": ak.Array([[0.0, 1.0]]),
         "MSeg_chiSquared": ak.Array([[1.2, 1.5]]),
         # Clusters - nested list matching jets (2 jets, each with 2 clusters)
-        "clus_eta": ak.Array([[0.5, 0.6, 1.2, 1.3]]),
-        "clus_phi": ak.Array([[1.0, 1.1, 2.0, 2.1]]),
-        "clus_pt": ak.Array([[5.0, 6.0, 7.0, 8.0]]),
-        "clus_l1hcal": ak.Array([[100.0, 110.0, 120.0, 130.0]]),
-        "clus_l2hcal": ak.Array([[200.0, 210.0, 220.0, 230.0]]),
-        "clus_l3hcal": ak.Array([[300.0, 310.0, 320.0, 330.0]]),
-        "clus_l4hcal": ak.Array([[400.0, 410.0, 420.0, 430.0]]),
-        "clus_l1ecal": ak.Array([[500.0, 510.0, 520.0, 530.0]]),
-        "clus_l2ecal": ak.Array([[600.0, 610.0, 620.0, 630.0]]),
-        "clus_l3ecal": ak.Array([[700.0, 710.0, 720.0, 730.0]]),
-        "clus_l4ecal": ak.Array([[800.0, 810.0, 820.0, 830.0]]),
+        "clus_eta": ak.Array([[[0.5, 0.6, 1.2, 1.3]]]),
+        "clus_phi": ak.Array([[[1.0, 1.1, 2.0, 2.1]]]),
+        "clus_pt": ak.Array([[[5.0, 6.0, 7.0, 8.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0, 110.0, 120.0, 130.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0, 210.0, 220.0, 230.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0, 310.0, 320.0, 330.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0, 410.0, 420.0, 430.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0, 510.0, 520.0, 530.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0, 610.0, 620.0, 630.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0, 710.0, 720.0, 730.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0, 810.0, 820.0, 830.0]]]),
         # No LLPs at all.
         "LLP_eta": ak.Array([]),
         "LLP_phi": ak.Array([]),
@@ -150,7 +150,7 @@ def test_convert_to_training_no_llps():
     raw_data = ak.Array([raw_data_dict])[0]
 
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL.value, rotation=False)
+    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
@@ -197,17 +197,17 @@ def test_convert_to_training_no_near_llps():
         "MSeg_t0": ak.Array([[0.0, 1.0]]),
         "MSeg_chiSquared": ak.Array([[1.2, 1.5]]),
         # Clusters - nested list matching jets (2 jets, each with 2 clusters)
-        "clus_eta": ak.Array([[0.5, 0.6, 1.2, 1.3]]),
-        "clus_phi": ak.Array([[1.0, 1.1, 2.0, 2.1]]),
-        "clus_pt": ak.Array([[5.0, 6.0, 7.0, 8.0]]),
-        "clus_l1hcal": ak.Array([[100.0, 110.0, 120.0, 130.0]]),
-        "clus_l2hcal": ak.Array([[200.0, 210.0, 220.0, 230.0]]),
-        "clus_l3hcal": ak.Array([[300.0, 310.0, 320.0, 330.0]]),
-        "clus_l4hcal": ak.Array([[400.0, 410.0, 420.0, 430.0]]),
-        "clus_l1ecal": ak.Array([[500.0, 510.0, 520.0, 530.0]]),
-        "clus_l2ecal": ak.Array([[600.0, 610.0, 620.0, 630.0]]),
-        "clus_l3ecal": ak.Array([[700.0, 710.0, 720.0, 730.0]]),
-        "clus_l4ecal": ak.Array([[800.0, 810.0, 820.0, 830.0]]),
+        "clus_eta": ak.Array([[[0.5, 0.6, 1.2, 1.3]]]),
+        "clus_phi": ak.Array([[[1.0, 1.1, 2.0, 2.1]]]),
+        "clus_pt": ak.Array([[[5.0, 6.0, 7.0, 8.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0, 110.0, 120.0, 130.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0, 210.0, 220.0, 230.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0, 310.0, 320.0, 330.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0, 410.0, 420.0, 430.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0, 510.0, 520.0, 530.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0, 610.0, 620.0, 630.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0, 710.0, 720.0, 730.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0, 810.0, 820.0, 830.0]]]),
         # Also Lxy must be between 1200-4000 for central region (eta < 1.4)
         # No LLP's near any jets
         "LLP_eta": ak.Array([[1.52]]),  # Very far from first jet's eta=0.5
@@ -222,7 +222,7 @@ def test_convert_to_training_no_near_llps():
     raw_data = ak.Array([raw_data_dict])[0]
 
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL.value, rotation=False)
+    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
