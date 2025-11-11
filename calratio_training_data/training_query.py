@@ -59,7 +59,7 @@ class RunConfig:
     rotation: bool = True
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
-    datatype: str = DataType.SIGNAL
+    datatype: DataType = DataType.SIGNAL
 
 
 @dataclass
@@ -402,6 +402,7 @@ def convert_to_training_data(
     logging.warning(
         "Jet Cluster Timing is ignored in cluster object build! TURN BACK ON"
     )
+
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -422,6 +423,9 @@ def convert_to_training_data(
         ),
         np.float32,
     )
+
+    # Check to see if we have any jets that are missing clusters:
+    # no_cluster_mask = len(clusters.pt) == 0
 
     # If we are doing signal, then we only want LLP's that are close to jets.
     if datatype == DataType.SIGNAL:
@@ -565,16 +569,34 @@ def convert_to_training_data(
     if datatype == DataType.SIGNAL and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
 
+    # Using mask to remove jets with no clusters
+    counts = ak.num(per_jet_training_data_dict["clusters"].pt)
+    empty_mask = counts > 0
+
+    # Warning for empty jets
+    if len(empty_mask) - sum(empty_mask) > 0:
+        logging.warning(
+            "Found jets with no clusters! Those jets have been filtered out."
+        )
+
+    # Rewriting dict with mask applied to all arrs
+    per_jet_training_data_dict = {
+        key: arr[empty_mask] for key, arr in per_jet_training_data_dict.items()
+    }
+
     # Doing rotations on tracks, clusters, msegs
     if rotation:
+        # Needed for rotations
+        flat_filtered_jets = ak.flatten(jets, axis=1)[empty_mask]
+
         per_jet_training_data_dict["tracks"] = do_rotations(
-            per_jet_training_data_dict["tracks"], "track", ak.flatten(jets, axis=1)
+            per_jet_training_data_dict["tracks"], "track", flat_filtered_jets
         )
         per_jet_training_data_dict["clusters"] = do_rotations(
             per_jet_training_data_dict["clusters"], "cluster"
         )
         per_jet_training_data_dict["msegs"] = do_rotations(
-            per_jet_training_data_dict["msegs"], "mseg", ak.flatten(jets, axis=1)
+            per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
 
     # Adding labels
