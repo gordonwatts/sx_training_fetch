@@ -109,7 +109,7 @@ def fetch_command(
 
 @app.command("training-file")
 def training_file_command(
-    input_files: List[str] = typer.Argument(
+    input_files: List[Path] = typer.Argument(
         ..., help="List of input datasets to be combined."
     ),
     event_filter: str = typer.Option(
