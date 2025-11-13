@@ -542,6 +542,12 @@ def convert_to_training_data(
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
+    if datatype == DataType.BIB:
+        # Giving BIB data mcEventWeight of 1
+        # Follows convention from CalRatioTrainer
+        per_jet_training_data_dict["mcEventWeight"] = ak.Array(
+            [1.0] * len(per_jet_training_data_dict["runNumber"])
+        )
 
     # # The top level jet information.
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
@@ -568,7 +574,21 @@ def convert_to_training_data(
     # And LLP's if we are doing signal
     if datatype == DataType.SIGNAL and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
-
+    if datatype == DataType.BIB or datatype == DataType.QCD:
+        llps = ak.values_astype(
+            ak.zip(
+                {
+                    "eta": [0] * len(per_jet_training_data_dict["pt"]),
+                    "phi": [0] * len(per_jet_training_data_dict["pt"]),
+                    "pt": [0] * len(per_jet_training_data_dict["pt"]),
+                    "Lz": [0] * len(per_jet_training_data_dict["pt"]),
+                    "Lxy": [0] * len(per_jet_training_data_dict["pt"]),
+                },
+                with_name="Momentum3D",
+            ),
+            np.float32,
+        )
+        per_jet_training_data_dict["llp"] = llps
     # Using mask to remove jets with no clusters
     counts = ak.num(per_jet_training_data_dict["clusters"].pt)
     empty_mask = counts > 0
