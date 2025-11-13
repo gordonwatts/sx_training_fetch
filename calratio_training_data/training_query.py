@@ -621,16 +621,16 @@ def convert_to_training_data(
 
     # Adding labels
     if datatype == DataType.SIGNAL:
-        per_jet_training_data_dict["label"] = [EventLabels.signal.value] * len(
-            per_jet_training_data_dict["pt"]
+        per_jet_training_data_dict["label"] = ak.Array(
+            [EventLabels.signal.value] * len(per_jet_training_data_dict["pt"])
         )
     if datatype == DataType.BIB:
-        per_jet_training_data_dict["label"] = [EventLabels.BIB.value] * len(
-            per_jet_training_data_dict["pt"]
+        per_jet_training_data_dict["label"] = ak.Array(
+            [EventLabels.BIB.value] * len(per_jet_training_data_dict["pt"])
         )
     if datatype == DataType.QCD:
-        per_jet_training_data_dict["label"] = [EventLabels.QCD.value] * len(
-            per_jet_training_data_dict["pt"]
+        per_jet_training_data_dict["label"] = ak.Array(
+            [EventLabels.QCD.value] * len(per_jet_training_data_dict["pt"])
         )
 
     # Finally, build the data we will write out!
