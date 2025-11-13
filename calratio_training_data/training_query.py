@@ -23,6 +23,8 @@ from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
+from calratio_training_data.triggers import trigger_bib_filter
+
 
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
@@ -93,13 +95,17 @@ def good_training_jet(jet: Jet_v1) -> bool:
     )
 
 
-def build_preselection():
+def build_preselection(data_type: DataType):
     # Start the query
     query_base = add_jet_selection_tool(
         FuncADLQueryPHYS(), "m_jetCleaning_llp", "LooseBadLLP"
     )
 
-    # Establish all the various types of objects we need.
+    # Apply any top level trigger/event selection.
+    if data_type == DataType.BIB:
+        query_base = trigger_bib_filter(query_base)
+
+    # Do top level object filtering
     query_base_objects = query_base.Select(
         lambda e: TopLevelEvent(
             event_info=e.EventInfo("EventInfo"),
@@ -157,7 +163,7 @@ def fetch_raw_training_data(
         config (RunConfig): Run configuration options.
     """
     # Get the base query
-    query_preselection = build_preselection()
+    query_preselection = build_preselection(config.datatype)
 
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
