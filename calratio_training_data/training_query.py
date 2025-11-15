@@ -542,6 +542,12 @@ def convert_to_training_data(
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
         )
+    if datatype == DataType.BIB:
+        # Giving BIB data mcEventWeight of 1
+        # Follows convention from CalRatioTrainer
+        per_jet_training_data_dict["mcEventWeight"] = ak.Array(
+            [1.0] * len(per_jet_training_data_dict["runNumber"])
+        )
 
     # # The top level jet information.
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
@@ -600,18 +606,35 @@ def convert_to_training_data(
         )
 
     # Adding labels
-    if datatype == DataType.SIGNAL:
-        per_jet_training_data_dict["label"] = [EventLabels.signal.value] * len(
-            per_jet_training_data_dict["pt"]
+    label_map = {
+        DataType.SIGNAL: EventLabels.signal.value,
+        DataType.BIB: EventLabels.BIB.value,
+        DataType.QCD: EventLabels.QCD.value,
+    }
+    label_value = label_map[datatype]
+
+    per_jet_training_data_dict["label"] = ak.Array(
+        [label_value] * len(per_jet_training_data_dict["pt"])
+    )
+
+    # Adding LLP columns to BIB/QCD - needed for combining signal/BIB/QCD datasets
+    if datatype == DataType.BIB or datatype == DataType.QCD:
+        n = len(per_jet_training_data_dict["pt"])
+        empty_arr = ak.Array([[]] * n)
+        llps = ak.values_astype(
+            ak.zip(
+                {
+                    "eta": empty_arr,
+                    "phi": empty_arr,
+                    "pt": empty_arr,
+                    "Lz": empty_arr,
+                    "Lxy": empty_arr,
+                },
+                with_name="Momentum3D",
+            ),
+            np.float32,
         )
-    if datatype == DataType.BIB:
-        per_jet_training_data_dict["label"] = [EventLabels.BIB.value] * len(
-            per_jet_training_data_dict["pt"]
-        )
-    if datatype == DataType.QCD:
-        per_jet_training_data_dict["label"] = [EventLabels.QCD.value] * len(
-            per_jet_training_data_dict["pt"]
-        )
+        per_jet_training_data_dict["llp"] = llps
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
