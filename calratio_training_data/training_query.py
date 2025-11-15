@@ -574,21 +574,7 @@ def convert_to_training_data(
     # And LLP's if we are doing signal
     if datatype == DataType.SIGNAL and len(jets) > 0:
         per_jet_training_data_dict["llp"] = ak.flatten(llp_match_jet, axis=1)
-    if datatype == DataType.BIB or datatype == DataType.QCD:
-        llps = ak.values_astype(
-            ak.zip(
-                {
-                    "eta": [0] * len(per_jet_training_data_dict["pt"]),
-                    "phi": [0] * len(per_jet_training_data_dict["pt"]),
-                    "pt": [0] * len(per_jet_training_data_dict["pt"]),
-                    "Lz": [0] * len(per_jet_training_data_dict["pt"]),
-                    "Lxy": [0] * len(per_jet_training_data_dict["pt"]),
-                },
-                with_name="Momentum3D",
-            ),
-            np.float32,
-        )
-        per_jet_training_data_dict["llp"] = llps
+
     # Using mask to remove jets with no clusters
     counts = ak.num(per_jet_training_data_dict["clusters"].pt)
     empty_mask = counts > 0
@@ -620,18 +606,35 @@ def convert_to_training_data(
         )
 
     # Adding labels
-    if datatype == DataType.SIGNAL:
-        per_jet_training_data_dict["label"] = ak.Array(
-            [EventLabels.signal.value] * len(per_jet_training_data_dict["pt"])
+    label_map = {
+        DataType.SIGNAL: EventLabels.signal.value,
+        DataType.BIB: EventLabels.BIB.value,
+        DataType.QCD: EventLabels.QCD.value,
+    }
+    label_value = label_map[datatype]
+
+    per_jet_training_data_dict["label"] = ak.Array(
+        [label_value] * len(per_jet_training_data_dict["pt"])
+    )
+
+    # Adding LLP columns to BIB/QCD - needed for combining signal/BIB/QCD datasets
+    if datatype == DataType.BIB or datatype == DataType.QCD:
+        n = len(per_jet_training_data_dict["pt"])
+        empty_arr = ak.Array([[]] * n)
+        llps = ak.values_astype(
+            ak.zip(
+                {
+                    "eta": empty_arr,
+                    "phi": empty_arr,
+                    "pt": empty_arr,
+                    "Lz": empty_arr,
+                    "Lxy": empty_arr,
+                },
+                with_name="Momentum3D",
+            ),
+            np.float32,
         )
-    if datatype == DataType.BIB:
-        per_jet_training_data_dict["label"] = ak.Array(
-            [EventLabels.BIB.value] * len(per_jet_training_data_dict["pt"])
-        )
-    if datatype == DataType.QCD:
-        per_jet_training_data_dict["label"] = ak.Array(
-            [EventLabels.QCD.value] * len(per_jet_training_data_dict["pt"])
-        )
+        per_jet_training_data_dict["llp"] = llps
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
