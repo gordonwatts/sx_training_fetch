@@ -1,7 +1,8 @@
 import logging
 import logging.handlers
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
+from pathlib import Path
 
 import typer
 
@@ -107,10 +108,33 @@ def fetch_command(
 
 
 @app.command("training-file")
-def training_file_command() -> None:
-    """Print a simple greeting for the training file command."""
+def training_file_command(
+    input_files: List[Path] = typer.Argument(
+        ..., help="List of input datasets to be combined."
+    ),
+    event_filter: str = typer.Option(
+        None,
+        "--event_filter",
+        help="Expression that can be used to filter events, default is to run over all events.",
+    ),
+    output_path: Path = typer.Option(
+        "main_training_file.parquet",
+        "--ouput",
+        "-o",
+        help="Output path for combined training dataset.",
+    ),
+):
+    """
+    Combines individual processed datasets into large dataset used for training
+    """
+    from calratio_training_data.combining import combine_training_data, CombineConfig
 
-    typer.echo("Hello World")
+    combining_config = CombineConfig(
+        output_path=output_path,
+        event_filter=event_filter,
+    )
+
+    combine_training_data(input_files, combining_config)
 
 
 def run_from_command() -> None:
