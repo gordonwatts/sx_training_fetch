@@ -9,6 +9,7 @@ import awkward as ak
 class CombineConfig:
     output_path: str = "main_training_file.parquet"
     event_filter: Optional[str] = None
+    num_jets: Optional[int] = None
 
 
 def combine_training_data(input_files: List[Path], config: CombineConfig):

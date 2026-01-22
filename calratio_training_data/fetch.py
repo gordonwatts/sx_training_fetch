@@ -123,6 +123,11 @@ def training_file_command(
         "-o",
         help="Output path for combined training dataset.",
     ),
+    num_jets: int = typer.Option(
+        None,
+        "--num_jets",
+        help="Number of jets to include from each file when combining datasets",
+    ),
 ):
     """
     Combines individual processed datasets into large dataset used for training
@@ -130,8 +135,7 @@ def training_file_command(
     from calratio_training_data.combining import combine_training_data, CombineConfig
 
     combining_config = CombineConfig(
-        output_path=output_path,
-        event_filter=event_filter,
+        output_path=output_path, event_filter=event_filter, num_jets=num_jets
     )
 
     combine_training_data(input_files, combining_config)
