@@ -39,7 +39,7 @@ from calratio_training_data.constants import (
 from .cpp_xaod_utils import (
     add_jet_selection_tool,
     cvt_to_raw_calocluster,
-    # jet_clean_llp,
+    jet_clean_llp,
     track_summary_value,
     particle_radiates,
 )
@@ -84,14 +84,13 @@ class TopLevelEvent:
     bsm_particles: FADLStream[TruthParticle_v1]
 
 
-logging.warning("Jet Cleanup Is Turned Off - TURN BACK ON")
-
-
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return (jet.pt() / 1000.0 > 40 and jet.pt() / 1000.0 < 500) and abs(
-        jet.eta()
-    ) < 2.5  # and jet_clean_llp(jet)
+    return (
+        (jet.pt() / 1000.0 > 40 and jet.pt() / 1000.0 < 500)
+        and abs(jet.eta()) < 2.5
+        and jet_clean_llp(jet)
+    )
 
 
 def build_preselection():
@@ -164,7 +163,6 @@ def fetch_raw_training_data(
     is_signal = config.datatype == DataType.SIGNAL
 
     # Query the run number, etc.
-    logging.warning("Jet Cluster Timing is ignored! TURN BACK ON")
     query = query_preselection.Select(
         lambda e: {
             "runNumber": e.event_info.runNumber(),
@@ -293,9 +291,9 @@ def fetch_raw_training_data(
                 for jet_clusters in e.jet_clusters
                 for c in jet_clusters
             ],
-            # "clus_time": [
-            #     c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
-            # ],
+            "clus_time": [
+                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+            ],
             **(
                 {
                     "LLP_eta": [p.eta() for p in e.bsm_particles],
@@ -399,10 +397,6 @@ def convert_to_training_data(
         np.float32,
     )
 
-    logging.warning(
-        "Jet Cluster Timing is ignored in cluster object build! TURN BACK ON"
-    )
-
     clusters = ak.values_astype(
         ak.zip(
             {
@@ -417,7 +411,7 @@ def convert_to_training_data(
                 "l2ecal": data.clus_l2ecal,  # type: ignore
                 "l3ecal": data.clus_l3ecal,  # type: ignore
                 "l4ecal": data.clus_l4ecal,  # type: ignore
-                # "time": data.clus_time,  # type: ignore
+                "time": data.clus_time,  # type: ignore
             },
             with_name="Momentum3D",
         ),
