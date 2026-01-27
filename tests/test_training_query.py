@@ -52,6 +52,7 @@ def test_convert_to_training_data_mc_no_rotation():
         "clus_l2ecal": ak.Array([[[600.0, 610.0, 620.0, 630.0]]]),
         "clus_l3ecal": ak.Array([[[700.0, 710.0, 720.0, 730.0]]]),
         "clus_l4ecal": ak.Array([[[800.0, 810.0, 820.0, 830.0]]]),
+        "clus_time": ak.Array([[-14, -4, 4, 14]]),
         # LLP truth particles - 1 LLP in the event, close to first jet
         # First jet is at (eta=0.5, phi=1.0), so LLP should be nearby (deltaR < 0.4)
         # Also Lxy must be between 1200-4000 for central region (eta < 1.4)
@@ -137,6 +138,7 @@ def test_convert_to_training_no_llps():
         "clus_l2ecal": ak.Array([[[600.0, 610.0, 620.0, 630.0]]]),
         "clus_l3ecal": ak.Array([[[700.0, 710.0, 720.0, 730.0]]]),
         "clus_l4ecal": ak.Array([[[800.0, 810.0, 820.0, 830.0]]]),
+        "clus_time": ak.Array([[-14, -4, 4, 14]]),
         # No LLPs at all.
         "LLP_eta": ak.Array([]),
         "LLP_phi": ak.Array([]),
@@ -208,6 +210,7 @@ def test_convert_to_training_no_near_llps():
         "clus_l2ecal": ak.Array([[[600.0, 610.0, 620.0, 630.0]]]),
         "clus_l3ecal": ak.Array([[[700.0, 710.0, 720.0, 730.0]]]),
         "clus_l4ecal": ak.Array([[[800.0, 810.0, 820.0, 830.0]]]),
+        "clus_time": ak.Array([[-14, -4, 4, 14]]),
         # Also Lxy must be between 1200-4000 for central region (eta < 1.4)
         # No LLP's near any jets
         "LLP_eta": ak.Array([[1.52]]),  # Very far from first jet's eta=0.5
