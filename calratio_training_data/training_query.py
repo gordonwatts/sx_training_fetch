@@ -599,6 +599,32 @@ def convert_to_training_data(
             per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
 
+    if datatype in (DataType.BIB, DataType.QCD):
+        n = len(per_jet_training_data_dict["pt"])
+
+        # Define a single dummy record
+        dummy_llp = ak.zip(
+            {
+                "eta": np.float32(0.0),
+                "phi": np.float32(0.0),
+                "pt": np.float32(0.0),
+                "Lz": np.float32(0.0),
+                "Lxy": np.float32(0.0),
+            },
+            with_name="Momentum3D",
+        )
+
+        # Repeat it n times using ak.Array + ak.broadcast_arrays
+        llp = ak.Array([dummy_llp] * n)
+        llp = ak.with_name(llp, "Momentum3D")  # ensure record name is preserved
+
+        # Mask everything if you want a nullable array
+        mask = ak.Array([False] * n)
+        llp = ak.mask(llp, mask)
+        print(llp.type)
+
+        per_jet_training_data_dict["llp"] = llp
+
     # Adding labels
     label_map = {
         DataType.SIGNAL: EventLabels.signal.value,
@@ -610,25 +636,6 @@ def convert_to_training_data(
     per_jet_training_data_dict["label"] = ak.Array(
         [label_value] * len(per_jet_training_data_dict["pt"])
     )
-
-    # Adding LLP columns to BIB/QCD - needed for combining signal/BIB/QCD datasets
-    if datatype == DataType.BIB or datatype == DataType.QCD:
-        n = len(per_jet_training_data_dict["pt"])
-        empty_arr = ak.Array([[]] * n)
-        llps = ak.values_astype(
-            ak.zip(
-                {
-                    "eta": empty_arr,
-                    "phi": empty_arr,
-                    "pt": empty_arr,
-                    "Lz": empty_arr,
-                    "Lxy": empty_arr,
-                },
-                with_name="Momentum3D",
-            ),
-            np.float32,
-        )
-        per_jet_training_data_dict["llp"] = llps
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
