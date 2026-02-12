@@ -13,9 +13,10 @@
             "args": [
                 "fetch",
                 // "--ignore_cache",
-                "signal",
-                "mc23_13p6TeV:mc23_13p6TeV.802594.Py8EG_EmergingJ_ModelD_1500_5.deriv.DAOD_LLP1.e8531_e8586_s4159_s4114_r15530_r15514_p6463",
-                "--no-rotation",
+                "bib",
+                "user.gwatts:data24_LLP1_p7079_2026_02_02.1000",
+                "-n",
+                "100",
             ]
         }
     ]
