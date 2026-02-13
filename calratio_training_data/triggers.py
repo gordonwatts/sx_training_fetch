@@ -26,8 +26,10 @@ def trigger_bib_filter(
         ObjectStream[FuncADLQueryPHYS]: The event-level query with the proper set of triggers
         checked.
     """
-    for incl_trig, bib_trig in BIB_TRIGGERS:
-        query = query.Where(
-            lambda e: tdt_chain_fired(incl_trig) and not tdt_chain_fired(bib_trig)
+    query = query.Where(
+        lambda e: any(
+            tdt_chain_fired(incl_trig) and not tdt_chain_fired(bib_trig)
+            for incl_trig, bib_trig in BIB_TRIGGERS
         )
+    )
     return query
