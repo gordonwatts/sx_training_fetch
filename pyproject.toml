@@ -16,6 +16,7 @@ dependencies = [
     "func_adl_servicex_xaodr25",
     "servicex-analysis-utils",
     "jinja2",
+    "func_adl>=4.0.0b1",
 ]
 requires-python = ">=3.10"
 

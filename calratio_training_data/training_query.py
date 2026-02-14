@@ -233,72 +233,86 @@ def fetch_raw_training_data(
             #       /RegionVarCalculator_calRatio.cxx?ref_type=heads#L381
             # These are a double-nested list since the jet association is implicit in the xAOD.
             "clus_eta": [
-                c.eta() for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.eta() for c in jet_clusters] for jet_clusters in e.jet_clusters
             ],
             "clus_phi": [
-                c.phi() for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.phi() for c in jet_clusters] for jet_clusters in e.jet_clusters
             ],
             "clus_pt": [
-                c.pt() / 1000.0 for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.pt() / 1000.0 for c in jet_clusters]
+                for jet_clusters in e.jet_clusters
             ],
             "clus_l1hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC0)
+                [c.eSample(CaloSampling.CaloSample.HEC0) for c in jet_clusters]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l2hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC1)
-                + c.eSample(CaloSampling.CaloSample.TileBar0)
-                + c.eSample(CaloSampling.CaloSample.TileGap1)
-                + c.eSample(CaloSampling.CaloSample.TileExt0)
+                [
+                    c.eSample(CaloSampling.CaloSample.HEC1)
+                    + c.eSample(CaloSampling.CaloSample.TileBar0)
+                    + c.eSample(CaloSampling.CaloSample.TileGap1)
+                    + c.eSample(CaloSampling.CaloSample.TileExt0)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l3hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC2)
-                + c.eSample(CaloSampling.CaloSample.TileBar1)
-                + c.eSample(CaloSampling.CaloSample.TileGap2)
-                + c.eSample(CaloSampling.CaloSample.TileExt1)
+                [
+                    c.eSample(CaloSampling.CaloSample.HEC2)
+                    + c.eSample(CaloSampling.CaloSample.TileBar1)
+                    + c.eSample(CaloSampling.CaloSample.TileGap2)
+                    + c.eSample(CaloSampling.CaloSample.TileExt1)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l4hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC3)
-                + c.eSample(CaloSampling.CaloSample.TileBar2)
-                + c.eSample(CaloSampling.CaloSample.TileGap3)
-                + c.eSample(CaloSampling.CaloSample.TileExt2)
+                [
+                    c.eSample(CaloSampling.CaloSample.HEC3)
+                    + c.eSample(CaloSampling.CaloSample.TileBar2)
+                    + c.eSample(CaloSampling.CaloSample.TileGap3)
+                    + c.eSample(CaloSampling.CaloSample.TileExt2)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l1ecal": [
-                c.eSample(CaloSampling.CaloSample.PreSamplerB)
-                + c.eSample(CaloSampling.CaloSample.PreSamplerE)
+                [
+                    c.eSample(CaloSampling.CaloSample.PreSamplerB)
+                    + c.eSample(CaloSampling.CaloSample.PreSamplerE)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l2ecal": [
-                c.eSample(CaloSampling.CaloSample.EMB1)
-                + c.eSample(CaloSampling.CaloSample.EME1)
-                + c.eSample(CaloSampling.CaloSample.FCAL0)
+                [
+                    c.eSample(CaloSampling.CaloSample.EMB1)
+                    + c.eSample(CaloSampling.CaloSample.EME1)
+                    + c.eSample(CaloSampling.CaloSample.FCAL0)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l3ecal": [
-                c.eSample(CaloSampling.CaloSample.EMB2)
-                + c.eSample(CaloSampling.CaloSample.EME2)
-                + c.eSample(CaloSampling.CaloSample.FCAL1)
+                [
+                    c.eSample(CaloSampling.CaloSample.EMB2)
+                    + c.eSample(CaloSampling.CaloSample.EME2)
+                    + c.eSample(CaloSampling.CaloSample.FCAL1)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l4ecal": [
-                c.eSample(CaloSampling.CaloSample.EMB3)
-                + c.eSample(CaloSampling.CaloSample.EME3)
-                + c.eSample(CaloSampling.CaloSample.FCAL2)
+                [
+                    c.eSample(CaloSampling.CaloSample.EMB3)
+                    + c.eSample(CaloSampling.CaloSample.EME3)
+                    + c.eSample(CaloSampling.CaloSample.FCAL2)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_time": [
-                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.time() for c in jet_clusters] for jet_clusters in e.jet_clusters
             ],
             **(
                 {
