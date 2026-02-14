@@ -1,8 +1,9 @@
 from func_adl import ObjectStream
-from func_adl_servicex_xaodr25 import tdt_chain_fired
+from func_adl_servicex_xaodr25 import tdt_chain_fired, tmt_match_object
 from func_adl_servicex_xaodr25.event_collection import Event
 
 from calratio_training_data.constants import BIB_TRIGGERS
+from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 
 
 def trigger_bib_filter(
@@ -33,3 +34,17 @@ def trigger_bib_filter(
         )
     )
     return query
+
+
+def is_trigger_jet(jet: Jet_v1) -> bool:
+    """For use in a query - true if the jet matched one of the triggers.
+    Matches with a delta R of 0.2 or less.
+
+    Args:
+        jet (Jet_v1): Jet to check
+
+    Returns:
+        bool: Inside a query, evaluates to true if the jet matches one of the triggers
+              in `BIB_TRIGGERS`
+    """
+    return any(tmt_match_object(trig, jet, 0.2) for trig, _ in BIB_TRIGGERS)
