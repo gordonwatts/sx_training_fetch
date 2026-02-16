@@ -20,6 +20,7 @@ from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
+from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
@@ -167,6 +168,7 @@ def fetch_raw_training_data(
 
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
+    is_bib = config.datatype == DataType.BIB
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -336,6 +338,15 @@ def fetch_raw_training_data(
                 if is_signal
                 else {}
             ),
+            **(
+                {
+                    "jet_emf": [
+                        j.getAttribute[cpp_float]("EMFrac") / 1000.0 for j in e.jets
+                    ],
+                }
+                if is_bib
+                else {}
+            ),
         }
     )
 
@@ -440,6 +451,17 @@ def convert_to_training_data(
 
     # Check to see if we have any jets that are missing clusters:
     # no_cluster_mask = len(clusters.pt) == 0
+
+    # If we are doing BIB, select only the jet with minimum EMF per event.
+    if datatype == DataType.BIB:
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+        min_emf_idx = ak.argmin(jet_emf, axis=1)
+        # Create boolean mask: True for jets at the minimum EMF index per event
+        local_idx = ak.local_index(jets.pt, axis=1)
+        bib_mask = local_idx == min_emf_idx
+
+        jets = jets[bib_mask]
+        clusters = clusters[bib_mask]
 
     # If we are doing signal, then we only want LLP's that are close to jets.
     if datatype == DataType.SIGNAL:
