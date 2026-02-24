@@ -20,9 +20,12 @@ from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
+from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
+from calratio_training_data.triggers import trigger_bib_filter
+
 
 from calratio_training_data.constants import (
     JET_MSEG_DELTA_PHI,
@@ -93,13 +96,17 @@ def good_training_jet(jet: Jet_v1) -> bool:
     )
 
 
-def build_preselection():
+def build_preselection(data_type: DataType):
     # Start the query
     query_base = add_jet_selection_tool(
         FuncADLQueryPHYS(), "m_jetCleaning_llp", "LooseBadLLP"
     )
 
-    # Establish all the various types of objects we need.
+    # Apply any top level trigger/event selection.
+    if data_type == DataType.BIB:
+        query_base = trigger_bib_filter(query_base)
+
+    # Do top level object filtering
     query_base_objects = query_base.Select(
         lambda e: TopLevelEvent(
             event_info=e.EventInfo("EventInfo"),
@@ -157,10 +164,11 @@ def fetch_raw_training_data(
         config (RunConfig): Run configuration options.
     """
     # Get the base query
-    query_preselection = build_preselection()
+    query_preselection = build_preselection(config.datatype)
 
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
+    is_bib = config.datatype == DataType.BIB
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -227,72 +235,86 @@ def fetch_raw_training_data(
             #       /RegionVarCalculator_calRatio.cxx?ref_type=heads#L381
             # These are a double-nested list since the jet association is implicit in the xAOD.
             "clus_eta": [
-                c.eta() for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.eta() for c in jet_clusters] for jet_clusters in e.jet_clusters
             ],
             "clus_phi": [
-                c.phi() for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.phi() for c in jet_clusters] for jet_clusters in e.jet_clusters
             ],
             "clus_pt": [
-                c.pt() / 1000.0 for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.pt() / 1000.0 for c in jet_clusters]
+                for jet_clusters in e.jet_clusters
             ],
             "clus_l1hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC0)
+                [c.eSample(CaloSampling.CaloSample.HEC0) for c in jet_clusters]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l2hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC1)
-                + c.eSample(CaloSampling.CaloSample.TileBar0)
-                + c.eSample(CaloSampling.CaloSample.TileGap1)
-                + c.eSample(CaloSampling.CaloSample.TileExt0)
+                [
+                    c.eSample(CaloSampling.CaloSample.HEC1)
+                    + c.eSample(CaloSampling.CaloSample.TileBar0)
+                    + c.eSample(CaloSampling.CaloSample.TileGap1)
+                    + c.eSample(CaloSampling.CaloSample.TileExt0)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l3hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC2)
-                + c.eSample(CaloSampling.CaloSample.TileBar1)
-                + c.eSample(CaloSampling.CaloSample.TileGap2)
-                + c.eSample(CaloSampling.CaloSample.TileExt1)
+                [
+                    c.eSample(CaloSampling.CaloSample.HEC2)
+                    + c.eSample(CaloSampling.CaloSample.TileBar1)
+                    + c.eSample(CaloSampling.CaloSample.TileGap2)
+                    + c.eSample(CaloSampling.CaloSample.TileExt1)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l4hcal": [
-                c.eSample(CaloSampling.CaloSample.HEC3)
-                + c.eSample(CaloSampling.CaloSample.TileBar2)
-                + c.eSample(CaloSampling.CaloSample.TileGap3)
-                + c.eSample(CaloSampling.CaloSample.TileExt2)
+                [
+                    c.eSample(CaloSampling.CaloSample.HEC3)
+                    + c.eSample(CaloSampling.CaloSample.TileBar2)
+                    + c.eSample(CaloSampling.CaloSample.TileGap3)
+                    + c.eSample(CaloSampling.CaloSample.TileExt2)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l1ecal": [
-                c.eSample(CaloSampling.CaloSample.PreSamplerB)
-                + c.eSample(CaloSampling.CaloSample.PreSamplerE)
+                [
+                    c.eSample(CaloSampling.CaloSample.PreSamplerB)
+                    + c.eSample(CaloSampling.CaloSample.PreSamplerE)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l2ecal": [
-                c.eSample(CaloSampling.CaloSample.EMB1)
-                + c.eSample(CaloSampling.CaloSample.EME1)
-                + c.eSample(CaloSampling.CaloSample.FCAL0)
+                [
+                    c.eSample(CaloSampling.CaloSample.EMB1)
+                    + c.eSample(CaloSampling.CaloSample.EME1)
+                    + c.eSample(CaloSampling.CaloSample.FCAL0)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l3ecal": [
-                c.eSample(CaloSampling.CaloSample.EMB2)
-                + c.eSample(CaloSampling.CaloSample.EME2)
-                + c.eSample(CaloSampling.CaloSample.FCAL1)
+                [
+                    c.eSample(CaloSampling.CaloSample.EMB2)
+                    + c.eSample(CaloSampling.CaloSample.EME2)
+                    + c.eSample(CaloSampling.CaloSample.FCAL1)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_l4ecal": [
-                c.eSample(CaloSampling.CaloSample.EMB3)
-                + c.eSample(CaloSampling.CaloSample.EME3)
-                + c.eSample(CaloSampling.CaloSample.FCAL2)
+                [
+                    c.eSample(CaloSampling.CaloSample.EMB3)
+                    + c.eSample(CaloSampling.CaloSample.EME3)
+                    + c.eSample(CaloSampling.CaloSample.FCAL2)
+                    for c in jet_clusters
+                ]
                 for jet_clusters in e.jet_clusters
-                for c in jet_clusters
             ],
             "clus_time": [
-                c.time() for jet_clusters in e.jet_clusters for c in jet_clusters
+                [c.time() for c in jet_clusters] for jet_clusters in e.jet_clusters
             ],
             **(
                 {
@@ -314,6 +336,15 @@ def fetch_raw_training_data(
                     ],
                 }
                 if is_signal
+                else {}
+            ),
+            **(
+                {
+                    "jet_emf": [
+                        j.getAttribute[cpp_float]("EMFrac") for j in e.jets
+                    ],
+                }
+                if is_bib
                 else {}
             ),
         }
@@ -420,6 +451,17 @@ def convert_to_training_data(
 
     # Check to see if we have any jets that are missing clusters:
     # no_cluster_mask = len(clusters.pt) == 0
+
+    # If we are doing BIB, select only the jet with minimum EMF per event.
+    if datatype == DataType.BIB:
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+        min_emf_idx = ak.argmin(jet_emf, axis=1)
+        # Create boolean mask: True for jets at the minimum EMF index per event
+        local_idx = ak.local_index(jets.pt, axis=1)
+        bib_mask = local_idx == min_emf_idx
+
+        jets = jets[bib_mask]
+        clusters = clusters[bib_mask]
 
     # If we are doing signal, then we only want LLP's that are close to jets.
     if datatype == DataType.SIGNAL:

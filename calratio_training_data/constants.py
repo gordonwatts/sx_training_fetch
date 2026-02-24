@@ -35,3 +35,33 @@ class EventLabels(Enum):
     QCD = 0
     signal = 1
     BIB = 2
+
+
+# Triggers for BIB. These are in pairs. The first is the inclusive trigger
+# that should have fired, the second is the inclusive trigger with the bib
+# removal algorithm that should not have fired (e.g. the signal trigger).
+# Definition can be found in the trigger code:
+# Trigger/TrigHypothesis/TrigHLTJetHypo/python/TrigJetHypoToolConfig.py#L203
+BIB_TRIGGERS = [
+    # data 24 triggers
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1jJ160",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1jJ160",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU140",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU140",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU80",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU80",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU60_EMPTY",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU60_EMPTY",
+    ),
+    (
+        "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU60_UNPAIRED_ISO",
+        "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU60_UNPAIRED_ISO",
+    ),
+]
