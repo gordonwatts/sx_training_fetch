@@ -21,10 +21,10 @@ def trigger_bib_filter(
     activity in the calorimeter.
 
     Args:
-        query (ObjectStream[FuncADLQueryPHYS]): The event-level query
+        query (ObjectStream[Event]): The event-level query
 
     Returns:
-        ObjectStream[FuncADLQueryPHYS]: The event-level query with the proper set of triggers
+        ObjectStream[Event]: The event-level query with the proper set of triggers
         checked.
     """
     query = query.Where(
