@@ -21,7 +21,7 @@ from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
 from func_adl_servicex_xaodr25 import cpp_float
-from servicex import deliver
+from servicex import General, deliver
 
 from calratio_training_data.processing import do_rotations
 from calratio_training_data.triggers import trigger_bib_filter
@@ -63,6 +63,7 @@ class RunConfig:
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
     datatype: DataType = DataType.SIGNAL
+    download: bool = False
 
 
 @dataclass
@@ -762,6 +763,11 @@ def run_query(
     else:
         if config.run_locally:
             raise ValueError(f"Unable to run dataset {ds_name} locally.")
+        spec.General.Delivery = (
+            General.DeliveryEnum.LocalCache
+            if config.download
+            else General.DeliveryEnum.URLs
+        )
         sx_result = deliver(
             spec, servicex_name=backend_name, ignore_local_cache=config.ignore_cache
         )

@@ -62,6 +62,13 @@ def fetch_command(
         "--local",
         help="Run ServiceX locally (requires docker)",
     ),
+    download: bool = typer.Option(
+        False,
+        "--download",
+        "-d",
+        help="Download transformed files locally before processing. "
+        "By default, files remain on the analysis facility.",
+    ),
     output: str = typer.Option(
         "training.parquet",
         "--output",
@@ -103,6 +110,7 @@ def fetch_command(
         sx_backend=sx_backend,
         n_files=n_files,
         datatype=data_type,
+        download=download,
     )
     fetch_training_data_to_file(dataset, run_config)
 
