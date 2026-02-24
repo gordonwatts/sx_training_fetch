@@ -341,7 +341,7 @@ def fetch_raw_training_data(
             **(
                 {
                     "jet_emf": [
-                        j.getAttribute[cpp_float]("EMFrac") / 1000.0 for j in e.jets
+                        j.getAttribute[cpp_float]("EMFrac") for j in e.jets
                     ],
                 }
                 if is_bib
