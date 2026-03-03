@@ -341,9 +341,7 @@ def fetch_raw_training_data(
             ),
             **(
                 {
-                    "jet_emf": [
-                        j.getAttribute[cpp_float]("EMFrac") for j in e.jets
-                    ],
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
                 }
                 if is_bib
                 else {}
@@ -664,7 +662,6 @@ def convert_to_training_data(
         # Mask everything if you want a nullable array
         mask = ak.Array([False] * n)
         llp = ak.mask(llp, mask)
-        print(llp.type)
 
         per_jet_training_data_dict["llp"] = llp
 
