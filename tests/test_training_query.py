@@ -1,7 +1,10 @@
 import awkward as ak
+import pytest
+from servicex import General, Sample, ServiceXSpec, dataset
 
 from calratio_training_data.training_query import convert_to_training_data
 from calratio_training_data.fetch import DataType
+import calratio_training_data.training_query as training_query
 
 
 def test_convert_to_training_data_mc_no_rotation():
@@ -452,3 +455,89 @@ def test_convert_to_training_no_near_llps():
 
     # Check that we have some jets in the output
     assert len(result) == 0
+
+
+@pytest.mark.parametrize(
+    "download,expected_delivery",
+    [
+        (False, General.DeliveryEnum.URLs),
+        (True, General.DeliveryEnum.LocalCache),
+    ],
+)
+def test_run_query_remote_sets_delivery_mode(
+    monkeypatch, download, expected_delivery
+):
+    spec = ServiceXSpec(
+        Sample=[
+            Sample(
+                Name="sample",
+                Dataset=dataset.FileList(files=["dummy.root"]),
+                Query="query",
+                Codegen="atlasr25",
+            )
+        ]
+    )
+
+    def _mock_build_sx_spec(*args, **kwargs):
+        return spec, None, None
+
+    monkeypatch.setattr(
+        "calratio_training_data.sx_utils.build_sx_spec",
+        _mock_build_sx_spec,
+    )
+
+    def _mock_deliver(*args, **kwargs):
+        return {"sample": []}
+
+    monkeypatch.setattr(training_query, "deliver", _mock_deliver)
+
+    list(
+        training_query.run_query(
+            "my_ds",
+            "query",
+            training_query.RunConfig(download=download),
+        )
+    )
+
+    assert spec.General.Delivery == expected_delivery
+
+
+def test_run_query_local_ignores_download_flag(monkeypatch):
+    spec = ServiceXSpec(
+        Sample=[
+            Sample(
+                Name="sample",
+                Dataset=dataset.FileList(files=["dummy.root"]),
+                Query="query",
+                Codegen="atlasr25",
+            )
+        ]
+    )
+
+    def _mock_build_sx_spec(*args, **kwargs):
+        return spec, "local-backend", "adaptor"
+
+    monkeypatch.setattr(
+        "calratio_training_data.sx_utils.build_sx_spec",
+        _mock_build_sx_spec,
+    )
+
+    def _mock_remote_deliver(*args, **kwargs):
+        raise AssertionError("Remote deliver should not be called for local backend")
+
+    monkeypatch.setattr(training_query, "deliver", _mock_remote_deliver)
+
+    def _mock_local_deliver(*args, **kwargs):
+        return {"sample": []}
+
+    monkeypatch.setattr(training_query.sx_local, "deliver", _mock_local_deliver)
+
+    list(
+        training_query.run_query(
+            "my_ds",
+            "query",
+            training_query.RunConfig(run_locally=True, download=False),
+        )
+    )
+
+    assert spec.General.Delivery == General.DeliveryEnum.LocalCache

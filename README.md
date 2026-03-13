@@ -58,6 +58,7 @@ Some notes:
 
 * Output data will be written in files called `training_000.parquet` by default. The `000` is to keep files to the 2 GB size.
 * Default running means you need to run nothing but the data type and the DID dataset.
+* By default, transformed files are read remotely from the analysis facility (no local download). Use `--download` (or `-d`) to force local download/cache behavior.
 * If no jets are written out, rerun with `-v` to see if there are any messages that give you a hint.
 * The `training_xxx.parquet` files are not deleted at the start of a run. Take care not to get confused by subsequent runs!
 
