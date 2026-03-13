@@ -663,7 +663,6 @@ def convert_to_training_data(
         # Mask everything if you want a nullable array
         mask = ak.Array([False] * n)
         llp = ak.mask(llp, mask)
-        print(llp.type)
 
         per_jet_training_data_dict["llp"] = llp
 
