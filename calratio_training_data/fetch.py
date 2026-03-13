@@ -3,7 +3,6 @@ import logging.handlers
 from enum import Enum
 from typing import Optional, List
 from pathlib import Path
-from dataclasses import dataclass
 
 import typer
 

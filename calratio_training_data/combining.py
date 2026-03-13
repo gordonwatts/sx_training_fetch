@@ -90,7 +90,8 @@ def combine_training_data(config: CombineConfig):
         if num_jets is not None:
             if num_jets > len(arr):
                 print(
-                    "Input num-jets is greater than number of jets in file, instead including all jets"
+                    "Input num-jets is greater than number of jets in file, "
+                    "instead including all jets"
                 )
             else:
                 # Randomly selecting jets (rows)
