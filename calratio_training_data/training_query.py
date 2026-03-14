@@ -340,9 +340,7 @@ def fetch_raw_training_data(
             ),
             **(
                 {
-                    "jet_emf": [
-                        j.getAttribute[cpp_float]("EMFrac") for j in e.jets
-                    ],
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
                 }
                 if is_bib
                 else {}
@@ -696,6 +694,8 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
     event_size = 0
     event_count = 0
     for r in result_list:
+        if len(r) == 0:
+            continue
         data_queue.append(r)
         event_size += r.nbytes
         event_count += len(r)
