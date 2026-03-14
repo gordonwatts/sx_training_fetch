@@ -575,14 +575,15 @@ def convert_to_training_data(
         ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
     )
     if datatype == DataType.SIGNAL or datatype == DataType.QCD:
-        per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
-            ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
+        per_jet_training_data_dict["mcEventWeight"] = ak.values_astype(
+            ak.flatten(ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1),
+            np.float32,
         )
     if datatype == DataType.BIB:
         # Giving BIB data mcEventWeight of 1
         # Follows convention from CalRatioTrainer
         per_jet_training_data_dict["mcEventWeight"] = ak.Array(
-            [1.0] * len(per_jet_training_data_dict["runNumber"])
+            np.ones(len(per_jet_training_data_dict["runNumber"]), dtype=np.float32)
         )
 
     # # The top level jet information.
@@ -644,23 +645,20 @@ def convert_to_training_data(
     if datatype in (DataType.BIB, DataType.QCD):
         n = len(per_jet_training_data_dict["pt"])
 
-        # Define a single dummy record
-        dummy_llp = ak.zip(
+        # Create float32 zero arrays for each LLP field
+        zeros = ak.Array(np.zeros(n, dtype=np.float32))
+        llp = ak.zip(
             {
-                "eta": np.float32(0.0),
-                "phi": np.float32(0.0),
-                "pt": np.float32(0.0),
-                "Lz": np.float32(0.0),
-                "Lxy": np.float32(0.0),
+                "eta": zeros,
+                "phi": zeros,
+                "pt": zeros,
+                "Lz": zeros,
+                "Lxy": zeros,
             },
             with_name="Momentum3D",
         )
 
-        # Repeat it n times using ak.Array + ak.broadcast_arrays
-        llp = ak.Array([dummy_llp] * n)
-        llp = ak.with_name(llp, "Momentum3D")  # ensure record name is preserved
-
-        # Mask everything if you want a nullable array
+        # Mask everything to produce a nullable array
         mask = ak.Array([False] * n)
         llp = ak.mask(llp, mask)
 
