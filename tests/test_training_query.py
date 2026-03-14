@@ -1,3 +1,4 @@
+import numpy as np
 import awkward as ak
 
 from calratio_training_data.training_query import convert_to_training_data
@@ -452,3 +453,130 @@ def test_convert_to_training_no_near_llps():
 
     # Check that we have some jets in the output
     assert len(result) == 0
+
+
+def _make_bib_raw_data():
+    """Helper to build minimal BIB input data."""
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0, 60.0]]),
+        "jet_eta": ak.Array([[0.5, 1.2]]),
+        "jet_phi": ak.Array([[1.0, 2.0]]),
+        "track_pT": ak.Array([[10.0, 15.0]]),
+        "track_eta": ak.Array([[0.4, 0.6]]),
+        "track_phi": ak.Array([[0.9, 1.1]]),
+        "track_vertex_nParticles": ak.Array([[2, 2]]),
+        "track_d0": ak.Array([[0.1, 0.2]]),
+        "track_z0": ak.Array([[0.5, 0.6]]),
+        "track_chiSquared": ak.Array([[1.0, 1.5]]),
+        "track_PixelShared": ak.Array([[0, 1]]),
+        "track_SCTShared": ak.Array([[0, 0]]),
+        "track_PixelHoles": ak.Array([[0, 0]]),
+        "track_SCTHoles": ak.Array([[0, 1]]),
+        "track_PixelHits": ak.Array([[3, 4]]),
+        "track_SCTHits": ak.Array([[8, 8]]),
+        "MSeg_x": ak.Array([[100.0]]),
+        "MSeg_y": ak.Array([[50.0]]),
+        "MSeg_z": ak.Array([[300.0]]),
+        "MSeg_px": ak.Array([[10.0]]),
+        "MSeg_py": ak.Array([[5.0]]),
+        "MSeg_pz": ak.Array([[30.0]]),
+        "MSeg_t0": ak.Array([[0.0]]),
+        "MSeg_chiSquared": ak.Array([[1.2]]),
+        # Clusters are per-jet: (events, jets, clusters_per_jet)
+        "clus_eta": ak.Array([[[0.5, 0.6], [1.2, 1.3]]]),
+        "clus_phi": ak.Array([[[1.0, 1.1], [2.0, 2.1]]]),
+        "clus_pt": ak.Array([[[5.0, 6.0], [7.0, 8.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0, 110.0], [120.0, 130.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0, 210.0], [220.0, 230.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0, 310.0], [320.0, 330.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0, 410.0], [420.0, 430.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0, 510.0], [520.0, 530.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0, 610.0], [620.0, 630.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0, 710.0], [720.0, 730.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0, 810.0], [820.0, 830.0]]]),
+        "clus_time": ak.Array([[[-14.0, -4.0], [4.0, 14.0]]]),
+        "jet_emf": ak.Array([[0.3, 0.1]]),
+    }
+    return ak.Array([raw_data_dict])[0]
+
+
+def _make_qcd_raw_data():
+    """Helper to build minimal QCD input data."""
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.5]),
+        "jet_pt": ak.Array([[50.0, 60.0]]),
+        "jet_eta": ak.Array([[0.5, 1.2]]),
+        "jet_phi": ak.Array([[1.0, 2.0]]),
+        "track_pT": ak.Array([[10.0, 15.0]]),
+        "track_eta": ak.Array([[0.4, 0.6]]),
+        "track_phi": ak.Array([[0.9, 1.1]]),
+        "track_vertex_nParticles": ak.Array([[2, 2]]),
+        "track_d0": ak.Array([[0.1, 0.2]]),
+        "track_z0": ak.Array([[0.5, 0.6]]),
+        "track_chiSquared": ak.Array([[1.0, 1.5]]),
+        "track_PixelShared": ak.Array([[0, 1]]),
+        "track_SCTShared": ak.Array([[0, 0]]),
+        "track_PixelHoles": ak.Array([[0, 0]]),
+        "track_SCTHoles": ak.Array([[0, 1]]),
+        "track_PixelHits": ak.Array([[3, 4]]),
+        "track_SCTHits": ak.Array([[8, 8]]),
+        "MSeg_x": ak.Array([[100.0]]),
+        "MSeg_y": ak.Array([[50.0]]),
+        "MSeg_z": ak.Array([[300.0]]),
+        "MSeg_px": ak.Array([[10.0]]),
+        "MSeg_py": ak.Array([[5.0]]),
+        "MSeg_pz": ak.Array([[30.0]]),
+        "MSeg_t0": ak.Array([[0.0]]),
+        "MSeg_chiSquared": ak.Array([[1.2]]),
+        # Clusters are per-jet: (events, jets, clusters_per_jet)
+        "clus_eta": ak.Array([[[0.5, 0.6], [1.2, 1.3]]]),
+        "clus_phi": ak.Array([[[1.0, 1.1], [2.0, 2.1]]]),
+        "clus_pt": ak.Array([[[5.0, 6.0], [7.0, 8.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0, 110.0], [120.0, 130.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0, 210.0], [220.0, 230.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0, 310.0], [320.0, 330.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0, 410.0], [420.0, 430.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0, 510.0], [520.0, 530.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0, 610.0], [620.0, 630.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0, 710.0], [720.0, 730.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0, 810.0], [820.0, 830.0]]]),
+        "clus_time": ak.Array([[[-14.0, -4.0], [4.0, 14.0]]]),
+    }
+    return ak.Array([raw_data_dict])[0]
+
+
+def test_bib_dtypes_are_float32():
+    """mcEventWeight and llp fields must be float32 for BIB data."""
+    result = convert_to_training_data(_make_bib_raw_data(), DataType.BIB, rotation=False)
+
+    assert len(result) > 0
+
+    assert result.mcEventWeight.type.content.primitive == "float32"
+
+    llp_non_null = ak.drop_none(result.llp)
+    assert llp_non_null.eta.type.content.primitive == "float32"
+    assert llp_non_null.phi.type.content.primitive == "float32"
+    assert llp_non_null.pt.type.content.primitive == "float32"
+    assert llp_non_null.Lz.type.content.primitive == "float32"
+    assert llp_non_null.Lxy.type.content.primitive == "float32"
+
+
+def test_qcd_dtypes_are_float32():
+    """mcEventWeight and llp fields must be float32 for QCD data."""
+    result = convert_to_training_data(_make_qcd_raw_data(), DataType.QCD, rotation=False)
+
+    assert len(result) > 0
+
+    assert result.mcEventWeight.type.content.primitive == "float32"
+
+    llp_non_null = ak.drop_none(result.llp)
+    assert llp_non_null.eta.type.content.primitive == "float32"
+    assert llp_non_null.phi.type.content.primitive == "float32"
+    assert llp_non_null.pt.type.content.primitive == "float32"
+    assert llp_non_null.Lz.type.content.primitive == "float32"
+    assert llp_non_null.Lxy.type.content.primitive == "float32"
