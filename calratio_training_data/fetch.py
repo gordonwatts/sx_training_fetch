@@ -45,6 +45,10 @@ def fetch_command(
         ..., help="Type of data to fetch (signal, qcd, data, bib)"
     ),
     dataset: str = typer.Argument(..., help="The data source"),
+    desc_label: str = typer.Argument(
+        ...,
+        help='Descriptive label used for labeling datasets. Ex. "HSS, JZ2, data24"',
+    ),
     verbosity: int = typer.Option(
         0,
         "--verbose",
@@ -103,6 +107,7 @@ def fetch_command(
         sx_backend=sx_backend,
         n_files=n_files,
         datatype=data_type,
+        desc_label=desc_label,
     )
     fetch_training_data_to_file(dataset, run_config)
 
