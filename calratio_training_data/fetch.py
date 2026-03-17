@@ -109,32 +109,77 @@ def fetch_command(
 
 @app.command("training-file")
 def training_file_command(
-    input_files: List[Path] = typer.Argument(
-        ..., help="List of input datasets to be combined."
-    ),
-    event_filter: str = typer.Option(
+    input_files: Optional[List[str]] = typer.Argument(
         None,
-        "--event_filter",
-        help="Expression that can be used to filter events, default is to run over all events.",
+        help="Input files or globs optionally with :num_jets",
+    ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="YAML configuration file",
+    ),
+    event_filter: Optional[str] = typer.Option(
+        None,
+        "--event-filter",
+        help="Expression used to filter events.",
     ),
     output_path: Path = typer.Option(
-        "main_training_file.parquet",
-        "--ouput",
+        None,
+        "--output",
         "-o",
-        help="Output path for combined training dataset.",
+        help="Output path for combined dataset.",
     ),
 ):
     """
-    Combines individual processed datasets into large dataset used for training
+    Combines processed datasets into large dataset to be used for training
     """
-    from calratio_training_data.combining import combine_training_data, CombineConfig
-
-    combining_config = CombineConfig(
-        output_path=output_path,
-        event_filter=event_filter,
+    from calratio_training_data.combining import (
+        combine_training_data,
+        CombineConfig,
+        parse_input_spec,
+        load_yaml_config,
     )
 
-    combine_training_data(input_files, combining_config)
+    def merge_config(
+        yaml_config: Optional[CombineConfig],
+        cli_inputs: Optional[List[str]],
+        event_filter: Optional[str],
+        output_path: Optional[Path],
+    ) -> CombineConfig:
+
+        if yaml_config:
+            config = yaml_config
+        else:
+            config = CombineConfig(inputs=[])
+
+        # CLI inputs override YAML inputs
+        if cli_inputs:
+            config.inputs = [parse_input_spec(x) for x in cli_inputs]
+
+        # CLI event filter overrides YAML
+        if event_filter is not None:
+            config.event_filter = event_filter
+
+        # CLI output path overrides YAML
+        if output_path is not None:
+            config.output_path = output_path
+
+        if not config.inputs:
+            raise typer.BadParameter("No input files provided")
+
+        return config
+
+    yaml_config = load_yaml_config(config) if config else None
+
+    final_config = merge_config(
+        yaml_config,
+        input_files,
+        event_filter,
+        output_path,
+    )
+
+    combine_training_data(final_config)
 
 
 def run_from_command() -> None:
