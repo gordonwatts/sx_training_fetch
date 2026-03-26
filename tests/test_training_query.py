@@ -67,8 +67,12 @@ def test_convert_to_training_data_mc_no_rotation():
     # Convert to awkward Record to support both dict and attribute access
     raw_data = ak.Array([raw_data_dict])[0]
 
+    ds_name = "ds_test_mH23_ms13"
+
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
+    result = convert_to_training_data(
+        raw_data, DataType.SIGNAL, ds_name, rotation=False
+    )
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
@@ -151,8 +155,12 @@ def test_convert_to_training_no_llps():
     # Convert to awkward Record to support both dict and attribute access
     raw_data = ak.Array([raw_data_dict])[0]
 
+    ds_name = "ds_test_mH23_ms13"
+
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
+    result = convert_to_training_data(
+        raw_data, DataType.SIGNAL, ds_name, rotation=False
+    )
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None
@@ -221,8 +229,10 @@ def test_convert_to_training_data_bib_select_min_emf():
     # Convert to awkward Record to support both dict and attribute access
     raw_data = ak.Array([raw_data_dict])[0]
 
-    # Call the function with BIB datatype
-    result = convert_to_training_data(raw_data, DataType.BIB, rotation=False)
+    ds_name = "data24_dataset"
+
+    # Call the function
+    result = convert_to_training_data(raw_data, DataType.BIB, ds_name, rotation=False)
 
     # Verify the function runs and returns an array
     assert result is not None
@@ -356,8 +366,10 @@ def test_convert_to_training_data_bib_multiple_events():
     # Convert to awkward Record
     raw_data = ak.Array([raw_data_dict])[0]
 
+    ds_name = "data24_dataset"
+
     # Call the function with BIB datatype
-    result = convert_to_training_data(raw_data, DataType.BIB, rotation=False)
+    result = convert_to_training_data(raw_data, DataType.BIB, ds_name, rotation=False)
 
     # Verify the function runs and returns an array
     assert result is not None
@@ -443,8 +455,12 @@ def test_convert_to_training_no_near_llps():
     # Convert to awkward Record to support both dict and attribute access
     raw_data = ak.Array([raw_data_dict])[0]
 
+    ds_name = "ds_test_mH23_ms13"
+
     # Call the function
-    result = convert_to_training_data(raw_data, DataType.SIGNAL, rotation=False)
+    result = convert_to_training_data(
+        raw_data, DataType.SIGNAL, ds_name, rotation=False
+    )
 
     # Basic checks - ensure the function runs without error and returns an array
     assert result is not None

@@ -48,6 +48,7 @@ from .cpp_xaod_utils import (
 )
 
 from calratio_training_data.fetch import DataType
+from calratio_training_data.label_utils import extract_param_block
 
 
 vector.register_awkward()
@@ -63,6 +64,7 @@ class RunConfig:
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
     datatype: DataType = DataType.SIGNAL
+    desc_label: str = ""
 
 
 @dataclass
@@ -352,7 +354,11 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], datatype: DataType, rotation: bool = True
+    data: Dict[str, ak.Array],
+    datatype: DataType,
+    ds_name: str,
+    rotation: bool = True,
+    desc_label="",
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -676,6 +682,17 @@ def convert_to_training_data(
         [label_value] * len(per_jet_training_data_dict["pt"])
     )
 
+    # Adding descriptive label
+    if datatype == DataType.SIGNAL:
+        full_label = desc_label + "_" + extract_param_block(ds_name)
+        per_jet_training_data_dict["desc_label"] = ak.Array(
+            [full_label] * len(per_jet_training_data_dict["pt"])
+        )
+    else:
+        per_jet_training_data_dict["desc_label"] = ak.Array(
+            [desc_label] * len(per_jet_training_data_dict["pt"])
+        )
+
     # Finally, build the data we will write out!
     training_data = ak.zip(
         per_jet_training_data_dict, with_name="Momentum3D", depth_limit=1
@@ -735,7 +752,11 @@ def fetch_training_data(ds_name, config: RunConfig):
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
         yield convert_to_training_data(
-            ar, datatype=config.datatype, rotation=config.rotation
+            ar,
+            datatype=config.datatype,
+            ds_name=ds_name,
+            rotation=config.rotation,
+            desc_label=config.desc_label,
         )
 
 
