@@ -37,12 +37,13 @@ class DataType(str, Enum):
     QCD = "qcd"
     DATA = "data"
     BIB = "bib"
+    CR = "cr"
 
 
 @app.command("fetch")
 def fetch_command(
     data_type: DataType = typer.Argument(
-        ..., help="Type of data to fetch (signal, qcd, data, bib)"
+        ..., help="Type of data to fetch (signal, qcd, data, bib, cr)"
     ),
     dataset: str = typer.Argument(..., help="The data source"),
     verbosity: int = typer.Option(

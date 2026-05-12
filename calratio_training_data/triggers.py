@@ -2,7 +2,7 @@ from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import tdt_chain_fired, tmt_match_object
 from func_adl_servicex_xaodr25.event_collection import Event
 
-from calratio_training_data.constants import BIB_TRIGGERS
+from calratio_training_data.constants import BIB_TRIGGERS, CR_TRIGGER
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 
 
@@ -36,8 +36,29 @@ def trigger_bib_filter(
     return query
 
 
+def trigger_cr_filter(
+    query: ObjectStream[Event],
+) -> ObjectStream[Event]:
+    """Filter events where the CR trigger has fired.
+
+    Args:
+        query (ObjectStream[Event]): The event-level query
+
+    Returns:
+        ObjectStream[Event]: The event-level query filtered to CR trigger events.
+    """
+    if len(CR_TRIGGER) == 1:
+        trig = CR_TRIGGER[0]
+        query = query.Where(lambda _: tdt_chain_fired(trig))
+    else:
+        query = query.Where(
+            lambda _: any(tdt_chain_fired(trig) for trig in CR_TRIGGER)
+        )
+    return query
+
+
 def is_trigger_jet(jet: Jet_v1) -> bool:
-    """For use in a query - true if the jet matched one of the triggers.
+    """For use in a query - true if the jet matched one of the CR triggers.
     Matches with a delta R of 0.2 or less.
 
     Args:
@@ -45,6 +66,8 @@ def is_trigger_jet(jet: Jet_v1) -> bool:
 
     Returns:
         bool: Inside a query, evaluates to true if the jet matches one of the triggers
-              in `BIB_TRIGGERS`
+              in `CR_TRIGGER`
     """
-    return any(tmt_match_object(trig, jet, 0.2) for trig, _ in BIB_TRIGGERS)
+    if len(CR_TRIGGER) == 1:
+        return tmt_match_object(CR_TRIGGER[0], jet, 0.2)
+    return any(tmt_match_object(trig, jet, 0.2) for trig in CR_TRIGGER)

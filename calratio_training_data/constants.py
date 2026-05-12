@@ -35,6 +35,7 @@ class EventLabels(Enum):
     QCD = 0
     signal = 1
     BIB = 2
+    CR = 3
 
 
 # Triggers for BIB. These are in pairs. The first is the inclusive trigger
@@ -65,3 +66,5 @@ BIB_TRIGGERS = [
         "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU60_UNPAIRED_ISO",
     ),
 ]
+
+CR_TRIGGER = ["HLT_j400_pf_ftf_preselj225_L1J100"]
