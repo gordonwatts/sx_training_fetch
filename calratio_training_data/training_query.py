@@ -145,12 +145,19 @@ def build_preselection(data_type: DataType):
         )
     )
 
-    # Preselection
-    query_preselection = query_base_objects.Where(
-        lambda e: len(e.vertices) > 0  # type: ignore
-        and e.vertices.First().nTrackParticles() > 0
-        and len(e.jets) > 0  # type: ignore
-    )
+    # Preselection: CR requires at least 2 jets for dijet topology cuts
+    if data_type == DataType.CR:
+        query_preselection = query_base_objects.Where(
+            lambda e: len(e.vertices) > 0  # type: ignore
+            and e.vertices.First().nTrackParticles() > 0
+            and len(e.jets) >= 2  # type: ignore
+        )
+    else:
+        query_preselection = query_base_objects.Where(
+            lambda e: len(e.vertices) > 0  # type: ignore
+            and e.vertices.First().nTrackParticles() > 0
+            and len(e.jets) > 0  # type: ignore
+        )
 
     return query_preselection
 
@@ -540,6 +547,45 @@ def convert_to_training_data(
             llp_jet_pairs.jet.deltaR(llp_jet_pairs.llp), axis=-1
         )
         llp_match_jet = llps[llp_match_jet_index]
+
+    # CR-specific event-level selection applied before per-jet expansion.
+    # Events must pass all five dijet topology cuts, then continue through
+    # the standard per-jet processing below.
+    if datatype == DataType.CR:
+        # Sort jets by pT descending so index 0 is leading, 1 is subleading.
+        # The preselection guarantees >= 2 jets per event for CR.
+        pt_order = ak.argsort(jets.pt, axis=1, ascending=False)
+        jets_sorted = jets[pt_order]
+
+        lead_pt = jets_sorted[:, 0].pt
+        sublead_pt = jets_sorted[:, 1].pt
+
+        # Leading jet pT > 400 GeV, subleading jet pT > 60 GeV
+        lead_pt_ok = lead_pt > 400.0
+        sublead_pt_ok = sublead_pt > 60.0
+
+        # |Delta phi(leading, subleading)| > 3 radians (back-to-back topology)
+        dphi = jets_sorted[:, 0].phi - jets_sorted[:, 1].phi
+        dphi = ak.where(dphi > np.pi, dphi - 2 * np.pi, dphi)
+        dphi = ak.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
+        dphi_ok = np.abs(dphi) > 3.0
+
+        # Dijet pT asymmetry (pT_lead - pT_sublead) / (pT_lead + pT_sublead) < 0.3
+        asym_ok = (lead_pt - sublead_pt) / (lead_pt + sublead_pt) < 0.3
+
+        # H_T,Miss < 120 GeV (vector sum magnitude of all selected jet pT)
+        sum_px = ak.sum(jets.pt * np.cos(jets.phi), axis=1)
+        sum_py = ak.sum(jets.pt * np.sin(jets.phi), axis=1)
+        ht_miss_ok = np.sqrt(sum_px**2 + sum_py**2) < 120.0
+
+        cr_event_mask = lead_pt_ok & sublead_pt_ok & dphi_ok & asym_ok & ht_miss_ok
+
+        data = data[cr_event_mask]
+        jets = jets[cr_event_mask]
+        clusters = clusters[cr_event_mask]
+        tracks = tracks[cr_event_mask]
+        msegs = msegs[cr_event_mask]
+        msegs_p = msegs_p[cr_event_mask]
 
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
