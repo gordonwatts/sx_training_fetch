@@ -24,7 +24,7 @@ from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
-from calratio_training_data.triggers import trigger_bib_filter
+from calratio_training_data.triggers import trigger_bib_filter, trigger_cr_filter
 
 
 from calratio_training_data.constants import (
@@ -49,7 +49,6 @@ from .cpp_xaod_utils import (
 
 from calratio_training_data.fetch import DataType
 from calratio_training_data.label_utils import extract_param_block
-
 
 vector.register_awkward()
 
@@ -107,6 +106,9 @@ def build_preselection(data_type: DataType):
     # Apply any top level trigger/event selection.
     if data_type == DataType.BIB:
         query_base = trigger_bib_filter(query_base)
+
+    if data_type == DataType.CR:
+        query_base = trigger_cr_filter(query_base)
 
     # Do top level object filtering
     query_base_objects = query_base.Select(
@@ -675,6 +677,7 @@ def convert_to_training_data(
         DataType.SIGNAL: EventLabels.signal.value,
         DataType.BIB: EventLabels.BIB.value,
         DataType.QCD: EventLabels.QCD.value,
+        DataType.CR: EventLabels.CR.value,
     }
     label_value = label_map[datatype]
 
