@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 from math import sqrt
 from typing import Any, Dict, Generator, Optional
@@ -20,7 +21,7 @@ from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
-from func_adl_servicex_xaodr25 import cpp_float
+from func_adl_servicex_xaodr25 import cpp_float, cpp_int
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
@@ -36,6 +37,7 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
+    TRUTH_JET_DR_CUT,
     EventLabels,
 )
 
@@ -84,6 +86,9 @@ class TopLevelEvent:
 
     # Truth particles
     bsm_particles: FADLStream[TruthParticle_v1]
+
+    # Hard-scatter truth jets (AntiKt4TruthJets, pT > 7 GeV); used for HS vs PU classification
+    truth_jets: FADLStream[Jet_v1]
 
 
 def good_training_jet(jet: Jet_v1) -> bool:
@@ -142,6 +147,11 @@ def build_preselection(data_type: DataType):
             bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
             .Where(lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51)
             .Where(lambda p: not particle_radiates(p)),
+            truth_jets=[
+                j
+                for j in e.Jets(collection="AntiKt4TruthJets", calibrate=False)
+                if j.pt() > 7000.0
+            ],  # type: ignore
         )
     )
 
@@ -162,6 +172,62 @@ def build_preselection(data_type: DataType):
     return query_preselection
 
 
+_DEFAULT_PMG_PATH = "/data/agolub/PMGxsecDB_mc23.txt"
+
+_pmg_cache: dict[str, dict[int, tuple[float, float, float]]] = {}
+
+
+def _load_pmg_db(pmg_xsec_db: str) -> dict[int, tuple[float, float, float]]:
+    """Parse the PMG text file once and cache by path."""
+
+    if pmg_xsec_db not in _pmg_cache:
+        db = {}
+        with open(os.path.expanduser(pmg_xsec_db)) as f:
+            raw_header = f.readline().strip()
+            col_names = [col.split("/")[0] for col in raw_header.split(":")]
+            for line in f:
+                fields = line.split()
+                if not fields:
+                    continue
+                row = dict(zip(col_names, fields))
+                db[int(row["dataset_number"])] = (
+                    float(row["crossSection_pb"]),
+                    float(row["kFactor"]),
+                    float(row["genFiltEff"]),
+                )
+        _pmg_cache[pmg_xsec_db] = db
+    return _pmg_cache[pmg_xsec_db]
+
+
+def _extract_dsid(ds_name: str) -> int:
+    """Extract the DSID integer from a dataset name.
+
+    Handles both scoped (scope:scope.DSID.tag...) and unscoped (scope.DSID.tag...) forms.
+    """
+    name_part = ds_name.split(":")[-1]
+    return int(name_part.split(".")[1])
+
+
+def get_cross_section(
+    dsid: int,
+    additional_branching_ratio: float | None = None,
+    additional_kfactor: float | None = None,
+    pmg_xsec_db: str = _DEFAULT_PMG_PATH,
+) -> float:
+    """Return crossSection_pb * kFactor * genFiltEff [* additional_branching_ratio]."""
+
+    db = _load_pmg_db(pmg_xsec_db)
+    if dsid not in db:
+        raise ValueError(f"DSID {dsid} not found in {pmg_xsec_db}")
+    xsec, kfactor, filteff = db[dsid]
+    result = xsec * kfactor * filteff
+    if additional_branching_ratio is not None:
+        result *= additional_branching_ratio
+    if additional_kfactor is not None:
+        result += additional_kfactor
+    return result
+
+
 def fetch_raw_training_data(
     ds_name: str, config: RunConfig = RunConfig(ignore_cache=False, run_locally=False)
 ):
@@ -178,6 +244,7 @@ def fetch_raw_training_data(
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
     is_bib = config.datatype == DataType.BIB
+    is_mc = not is_bib  # truth decorations are only available on MC jets
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -354,6 +421,27 @@ def fetch_raw_training_data(
                 if is_bib
                 else {}
             ),
+            **(
+                {
+                    # HadronConeExclTruthLabelID: ghost-association flavor label
+                    #   5=b, 4=c, 15=tau, 0=light (u/d/s/g)
+                    "jet_truthLabelID": [
+                        j.getAttribute[cpp_int]("HadronConeExclTruthLabelID")
+                        for j in e.jets
+                    ],
+                    # PartonTruthLabelID: parton-level label distinguishing gluon jets
+                    #   1-3=light quark, 4=c, 5=b, 21=gluon, -1=undefined
+                    "jet_partonTruthLabelID": [
+                        j.getAttribute[cpp_int]("PartonTruthLabelID") for j in e.jets
+                    ],
+                    # AntiKt4TruthJets kinematics for dR matching in post-processing
+                    "truth_jet_pt": [j.pt() / 1000.0 for j in e.truth_jets],
+                    "truth_jet_eta": [j.eta() for j in e.truth_jets],
+                    "truth_jet_phi": [j.phi() for j in e.truth_jets],
+                }
+                if is_mc
+                else {}
+            ),
         }
     )
 
@@ -361,7 +449,10 @@ def fetch_raw_training_data(
 
 
 def convert_to_training_data(
-    data: Dict[str, ak.Array], datatype: DataType, rotation: bool = True
+    data: Dict[str, ak.Array],
+    datatype: DataType,
+    rotation: bool = True,
+    mc_weight_scale: float = 1.0,
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -434,6 +525,11 @@ def convert_to_training_data(
         ),
         np.float32,
     )
+
+    is_mc = datatype != DataType.BIB
+    if is_mc:
+        jet_truth_label = data["jet_truthLabelID"]
+        jet_parton_truth_label = data["jet_partonTruthLabelID"]
 
     clusters = ak.values_astype(
         ak.zip(
@@ -533,6 +629,9 @@ def convert_to_training_data(
 
         jets = jets[jets_near_llps_mask]
         clusters = clusters[jets_near_llps_mask]
+        if is_mc:
+            jet_truth_label = jet_truth_label[jets_near_llps_mask]
+            jet_parton_truth_label = jet_parton_truth_label[jets_near_llps_mask]
 
         # And for those jets, get a match LLP. Easiest is to re-run the matching.
         llp_jet_pairs = ak.cartesian(
@@ -586,10 +685,56 @@ def convert_to_training_data(
         tracks = tracks[cr_event_mask]
         msegs = msegs[cr_event_mask]
         msegs_p = msegs_p[cr_event_mask]
+        if is_mc:
+            jet_truth_label = jet_truth_label[cr_event_mask]
+            jet_parton_truth_label = jet_parton_truth_label[cr_event_mask]
+
+        # Keep only the 5 leading jets by pT; events with fewer than 5 are kept as-is.
+        _order = ak.argsort(jets.pt, axis=1, ascending=False)[:, :5]
+        jets = jets[_order]
+        clusters = clusters[_order]
+        if is_mc:
+            jet_truth_label = jet_truth_label[_order]
+            jet_parton_truth_label = jet_parton_truth_label[_order]
 
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
         return ak.Array([])  # type: ignore
+
+    # dR-match each reco jet to the nearest hard-scatter truth jet.
+    # AntiKt4TruthJets contains only hard-scatter truth jets, so a match → HS (vtx_index=0);
+    # no match within DR cut → pile-up or unresolved (vtx_index=-1).
+    if is_mc:
+        truth_jets_mc = ak.values_astype(
+            ak.zip(
+                {
+                    "pt": data["truth_jet_pt"],
+                    "eta": data["truth_jet_eta"],
+                    "phi": data["truth_jet_phi"],
+                },
+                with_name="Momentum3D",
+            ),
+            np.float32,
+        )
+        tj_pairs = ak.cartesian(
+            {"jet": jets, "truth": truth_jets_mc}, axis=1, nested=True
+        )
+        dr_tj = tj_pairs.jet.deltaR(tj_pairs.truth)
+        best_dr_tj = ak.min(dr_tj, axis=-1, mask_identity=True)
+        has_truth_match = ak.fill_none(best_dr_tj < TRUTH_JET_DR_CUT, False)
+        best_tj_idx = ak.argmin(dr_tj, axis=-1, keepdims=True)
+        best_truth_pt = ak.firsts(tj_pairs.truth[best_tj_idx].pt, axis=-1)
+        jet_truth_jet_pt = ak.where(
+            has_truth_match,
+            ak.fill_none(best_truth_pt, np.float32(0.0)),
+            np.float32(0.0),
+        )
+        jet_truth_vtx_index = ak.where(has_truth_match, np.int32(0), np.int32(-1))
+
+    # H_T,Miss: magnitude of the vector sum of jet pT in each event.
+    _sum_px = ak.sum(jets.pt * np.cos(jets.phi), axis=1)
+    _sum_py = ak.sum(jets.pt * np.sin(jets.phi), axis=1)
+    event_ht_miss = np.sqrt(_sum_px**2 + _sum_py**2)
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
@@ -630,11 +775,35 @@ def convert_to_training_data(
         per_jet_training_data_dict["mcEventWeight"] = ak.Array(
             [1.0] * len(per_jet_training_data_dict["runNumber"])
         )
+    if datatype == DataType.CR:
+        per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
+            ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
+        )
+        per_jet_training_data_dict["rescaled_mcEventWeight"] = ak.flatten(
+            ak.broadcast_arrays(data["mcEventWeight"] * mc_weight_scale, jets.pt)[0],
+            axis=1,
+        )
 
     # # The top level jet information.
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
+    if is_mc:
+        per_jet_training_data_dict["jet_truthLabelID"] = ak.flatten(
+            ak.values_astype(jet_truth_label, np.int32), axis=1
+        )
+        per_jet_training_data_dict["jet_partonTruthLabelID"] = ak.flatten(
+            ak.values_astype(jet_parton_truth_label, np.int32), axis=1
+        )
+        per_jet_training_data_dict["jet_truth_jet_pt"] = ak.flatten(
+            ak.values_astype(jet_truth_jet_pt, np.float32), axis=1
+        )
+        per_jet_training_data_dict["jet_truth_vtx_index"] = ak.flatten(
+            ak.values_astype(jet_truth_vtx_index, np.int32), axis=1
+        )
+    # per_jet_training_data_dict["ht_miss"] = ak.flatten(
+    #     ak.broadcast_arrays(event_ht_miss, jets.pt)[0], axis=1
+    # )
 
     # Tracks, clusters, and muon segments.
     per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
@@ -686,6 +855,15 @@ def convert_to_training_data(
         per_jet_training_data_dict["msegs"] = do_rotations(
             per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
+
+    if not is_mc:
+        n = len(per_jet_training_data_dict["pt"])
+        per_jet_training_data_dict["jet_truthLabelID"] = ak.Array([-1] * n)
+        per_jet_training_data_dict["jet_partonTruthLabelID"] = ak.Array([-1] * n)
+        per_jet_training_data_dict["jet_truth_jet_pt"] = ak.Array(
+            np.zeros(n, dtype=np.float32)
+        )
+        per_jet_training_data_dict["jet_truth_vtx_index"] = ak.Array([-1] * n)
 
     if datatype in (DataType.BIB, DataType.QCD):
         n = len(per_jet_training_data_dict["pt"])
@@ -781,10 +959,22 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
 
 def fetch_training_data(ds_name, config: RunConfig):
+    if config.datatype == DataType.CR:
+        dsid = _extract_dsid(ds_name)
+        cross_section = get_cross_section(dsid)
+
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
+        mc_weight_scale = 1.0
+        if config.datatype == DataType.CR:
+            weight_sum = float(ak.sum(ar["mcEventWeight"]))
+            if weight_sum != 0.0:
+                mc_weight_scale = cross_section / weight_sum
         yield convert_to_training_data(
-            ar, datatype=config.datatype, rotation=config.rotation
+            ar,
+            datatype=config.datatype,
+            rotation=config.rotation,
+            mc_weight_scale=mc_weight_scale,
         )
 
 
