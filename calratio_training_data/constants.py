@@ -29,6 +29,13 @@ min_jet_pt = 40  # GeV
 max_jet_pt = 500  # GeV
 
 
+class CREventLabels(Enum):
+    "The magic numbers for control region data labeling"
+
+    MC = 0
+    data = 2
+
+
 class EventLabels(Enum):
     "The magic numbers for data labeling"
 
@@ -64,4 +71,11 @@ BIB_TRIGGERS = [
         "HLT_j30_CLEANllp_momemfrac006_calratio_L1eTAU60_UNPAIRED_ISO",
         "HLT_j30_CLEANllp_momemfrac006_calratiormbib_L1eTAU60_UNPAIRED_ISO",
     ),
+]
+
+CR_TTBAR_TRIGGER = [
+    (
+        "HLT_e7_lhmedium_mu24_L1MU14FCH",  # data 22
+        "HLT_e7_lhmedium_L1eEM5_mu24_L1MU14FCH",  # data 23 to 25
+    )
 ]

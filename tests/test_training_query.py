@@ -393,6 +393,68 @@ def test_convert_to_training_data_bib_multiple_events():
     assert abs(float(result.mcEventWeight[1]) - 1.0) < 0.001
 
 
+def test_convert_to_training_data_cr_applies_emf_mask_per_jet():
+    """Test CR e-mu event selection and per-jet EMF selection."""
+    raw_data_dict = {
+        "runNumber": ak.Array([123456, 123457]),
+        "eventNumber": ak.Array([789012, 789013]),
+        "mcEventWeight": ak.Array([0.5, 1.5]),
+        "jet_pt": ak.Array([[50.0, 60.0], [70.0, 80.0]]),
+        "jet_eta": ak.Array([[0.5, 1.2], [0.8, 1.1]]),
+        "jet_phi": ak.Array([[1.0, 2.0], [1.5, 2.5]]),
+        "track_pT": ak.Array([[10.0, 15.0], [12.0, 17.0]]),
+        "track_eta": ak.Array([[0.4, 1.1], [0.7, 1.0]]),
+        "track_phi": ak.Array([[0.9, 1.9], [1.4, 2.4]]),
+        "track_vertex_nParticles": ak.Array([[2, 2], [2, 2]]),
+        "track_d0": ak.Array([[0.1, 0.2], [0.15, 0.25]]),
+        "track_z0": ak.Array([[0.5, 0.6], [0.55, 0.65]]),
+        "track_chiSquared": ak.Array([[1.0, 1.5], [1.1, 1.6]]),
+        "track_PixelShared": ak.Array([[0, 1], [1, 0]]),
+        "track_SCTShared": ak.Array([[0, 0], [1, 0]]),
+        "track_PixelHoles": ak.Array([[0, 0], [0, 0]]),
+        "track_SCTHoles": ak.Array([[0, 1], [1, 0]]),
+        "track_PixelHits": ak.Array([[3, 4], [4, 3]]),
+        "track_SCTHits": ak.Array([[8, 8], [7, 8]]),
+        "MSeg_x": ak.Array([[100.0], [110.0]]),
+        "MSeg_y": ak.Array([[50.0], [60.0]]),
+        "MSeg_z": ak.Array([[300.0], [310.0]]),
+        "MSeg_px": ak.Array([[10.0], [11.0]]),
+        "MSeg_py": ak.Array([[5.0], [6.0]]),
+        "MSeg_pz": ak.Array([[30.0], [31.0]]),
+        "MSeg_t0": ak.Array([[0.0], [0.5]]),
+        "MSeg_chiSquared": ak.Array([[1.2], [1.3]]),
+        "clus_eta": ak.Array([[[0.5], [1.2]], [[0.8], [1.1]]]),
+        "clus_phi": ak.Array([[[1.0], [2.0]], [[1.5], [2.5]]]),
+        "clus_pt": ak.Array([[[5.0], [7.0]], [[6.5], [8.5]]]),
+        "clus_l1hcal": ak.Array([[[100.0], [120.0]], [[115.0], [125.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0], [220.0]], [[215.0], [225.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0], [320.0]], [[315.0], [325.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0], [420.0]], [[415.0], [425.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0], [520.0]], [[515.0], [525.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0], [620.0]], [[615.0], [625.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0], [720.0]], [[715.0], [725.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0], [820.0]], [[815.0], [825.0]]]),
+        "clus_time": ak.Array([[[-14.0], [4.0]], [[0.0], [10.0]]]),
+        "electron_charge": ak.Array([[1], [1]]),
+        "muon_charge": ak.Array([[-1], [1]]),
+        "jet_emf": ak.Array([[0.99, 0.2], [0.99, 0.99]]),
+    }
+
+    raw_data = ak.Array([raw_data_dict])[0]
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_TTBAR, "ttbar_dataset", rotation=False
+    )
+
+    assert len(result) == 1
+    assert int(result.runNumber[0]) == 123456
+    assert int(result.eventNumber[0]) == 789012
+    assert abs(float(result.mcEventWeight[0]) - 0.5) < 0.001
+    assert abs(float(result.pt[0]) - 50.0) < 0.001
+    assert abs(float(result.eta[0]) - 0.5) < 0.001
+    assert abs(float(result.phi[0]) - 1.0) < 0.001
+
+
 def test_convert_to_training_no_near_llps():
     """Test convert_to_training_data with datatype=SIGNAL and rotation=False."""
     # Create minimal input data that matches the expected structure
