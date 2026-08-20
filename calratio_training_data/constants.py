@@ -42,6 +42,7 @@ class EventLabels(Enum):
     QCD = 0
     signal = 1
     BIB = 2
+    ttbar = 3
 
 
 # Triggers for BIB. These are in pairs. The first is the inclusive trigger

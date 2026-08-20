@@ -226,6 +226,7 @@ def fetch_raw_training_data(
     is_signal = config.datatype == DataType.SIGNAL
     is_bib = config.datatype == DataType.BIB
     is_cr = config.datatype in (DataType.CR_TTBAR, DataType.CR_DATA)
+    is_ttbbar = config.datatype == DataType.TTBAR
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -409,6 +410,13 @@ def fetch_raw_training_data(
                     "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
                 }
                 if is_cr
+                else {}
+            ),
+            **(
+                {
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
+                }
+                if is_ttbbar
                 else {}
             ),
         }
@@ -640,6 +648,15 @@ def convert_to_training_data(
         jets = jets[emf_mask]
         clusters = clusters[emf_mask]
 
+    # Signal-region TTBAR (hadronic) selection: keep only jets with EMF < 0.97.
+    # This is the per-jet complement of the CR's > 0.97 cut, applied on the default
+    # (signal-region) path with no event-level pre-mask.
+    if datatype == DataType.TTBAR:
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+        emf_mask = jet_emf[event_mask] < 0.97
+        jets = jets[emf_mask]
+        clusters = clusters[emf_mask]
+
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
         return ak.Array([])  # type: ignore
@@ -673,7 +690,7 @@ def convert_to_training_data(
     per_jet_training_data_dict["eventNumber"] = ak.flatten(
         ak.broadcast_arrays(data["eventNumber"][event_mask], jets.pt)[0], axis=1
     )
-    if datatype in (DataType.SIGNAL, DataType.QCD, DataType.CR_TTBAR):
+    if datatype in (DataType.SIGNAL, DataType.QCD, DataType.TTBAR, DataType.CR_TTBAR):
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"][event_mask], jets.pt)[0], axis=1
         )
@@ -740,7 +757,7 @@ def convert_to_training_data(
             per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
 
-    if datatype in (DataType.BIB, DataType.QCD):
+    if datatype in (DataType.BIB, DataType.QCD, DataType.TTBAR):
         n = len(per_jet_training_data_dict["pt"])
 
         # Define a single dummy record
@@ -770,6 +787,7 @@ def convert_to_training_data(
         DataType.SIGNAL: EventLabels.signal.value,
         DataType.BIB: EventLabels.BIB.value,
         DataType.QCD: EventLabels.QCD.value,
+        DataType.TTBAR: EventLabels.ttbar.value,
         DataType.CR_TTBAR: CREventLabels.MC.value,
         DataType.CR_DATA: CREventLabels.data.value,
     }
