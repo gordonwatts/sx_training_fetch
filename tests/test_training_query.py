@@ -1,4 +1,5 @@
 import awkward as ak
+import numpy as np
 
 from calratio_training_data.training_query import convert_to_training_data
 from calratio_training_data.fetch import DataType
@@ -590,3 +591,441 @@ def test_convert_to_training_no_near_llps():
 
     # Check that we have some jets in the output
     assert len(result) == 0
+
+
+def test_track_near_jet_selection():
+    """Test that only tracks within JET_TRACK_DELTA_R (0.2) of a jet are selected."""
+    # Jet at eta=0.5, phi=1.0
+    # Track 0: eta=0.55, phi=1.05 (pt=11.0) -> delta_r = sqrt(0.05^2 + 0.05^2) = 0.0707 < 0.2 (matched)
+    # Track 1: eta=0.45, phi=0.95 (pt=12.0) -> delta_r = sqrt(0.05^2 + 0.05^2) = 0.0707 < 0.2 (matched)
+    # Track 2: eta=0.80, phi=1.00 (pt=13.0) -> delta_r = 0.300 > 0.2 (excluded, eta difference)
+    # Track 3: eta=0.50, phi=1.30 (pt=14.0) -> delta_r = 0.300 > 0.2 (excluded, phi difference)
+    # Track 4: eta=0.80, phi=1.30 (pt=15.0) -> delta_r = 0.424 > 0.2 (excluded, both)
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0]]),
+        "jet_eta": ak.Array([[0.5]]),
+        "jet_phi": ak.Array([[1.0]]),
+        "track_pT": ak.Array([[11.0, 12.0, 13.0, 14.0, 15.0]]),
+        "track_eta": ak.Array([[0.55, 0.45, 0.80, 0.50, 0.80]]),
+        "track_phi": ak.Array([[1.05, 0.95, 1.00, 1.30, 1.30]]),
+        "track_vertex_nParticles": ak.Array([[5, 5, 5, 5, 5]]),
+        "track_d0": ak.Array([[0.1, 0.2, 0.3, 0.4, 0.5]]),
+        "track_z0": ak.Array([[0.5, 0.6, 0.7, 0.8, 0.9]]),
+        "track_chiSquared": ak.Array([[1.1, 1.2, 1.3, 1.4, 1.5]]),
+        "track_PixelShared": ak.Array([[0, 1, 0, 0, 0]]),
+        "track_SCTShared": ak.Array([[0, 0, 1, 0, 0]]),
+        "track_PixelHoles": ak.Array([[0, 0, 0, 1, 0]]),
+        "track_SCTHoles": ak.Array([[0, 0, 0, 0, 1]]),
+        "track_PixelHits": ak.Array([[3, 4, 3, 4, 3]]),
+        "track_SCTHits": ak.Array([[8, 7, 8, 7, 8]]),
+        "MSeg_x": ak.Array([[]]),
+        "MSeg_y": ak.Array([[]]),
+        "MSeg_z": ak.Array([[]]),
+        "MSeg_px": ak.Array([[]]),
+        "MSeg_py": ak.Array([[]]),
+        "MSeg_pz": ak.Array([[]]),
+        "MSeg_t0": ak.Array([[]]),
+        "MSeg_chiSquared": ak.Array([[]]),
+        "clus_eta": ak.Array([[[0.5]]]),
+        "clus_phi": ak.Array([[[1.0]]]),
+        "clus_pt": ak.Array([[[5.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0]]]),
+        "clus_time": ak.Array([[[-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+    result = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+
+    assert len(result) == 1
+    # Only track 0 and track 1 should be matched to the jet
+    assert len(result.tracks[0]) == 2
+    matched_pts = list(result.tracks[0].pt)
+    assert abs(matched_pts[0] - 11.0) < 0.001
+    assert abs(matched_pts[1] - 12.0) < 0.001
+
+    # Verify track properties are preserved
+    assert abs(float(result.tracks[0].eta[0]) - 0.55) < 0.001
+    assert abs(float(result.tracks[0].phi[0]) - 1.05) < 0.001
+    assert abs(float(result.tracks[0].d0[0]) - 0.1) < 0.001
+    assert abs(float(result.tracks[0].z0[0]) - 0.5) < 0.001
+    assert int(result.tracks[0].PixelShared[1]) == 1
+    assert int(result.tracks[0].PixelHits[0]) == 3
+
+
+def test_track_near_jet_selection_multi_jet():
+    """Test track matching with multiple jets in the same event."""
+    # Jet 0 at (0.5, 1.0), Jet 1 at (-1.0, -2.0)
+    # Track 0 near Jet 0 only (0.52, 1.02)
+    # Track 1 near Jet 1 only (-0.98, -1.98)
+    # Track 2 far from both (2.0, 0.0)
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0, 60.0]]),
+        "jet_eta": ak.Array([[0.5, -1.0]]),
+        "jet_phi": ak.Array([[1.0, -2.0]]),
+        "track_pT": ak.Array([[10.0, 20.0, 30.0]]),
+        "track_eta": ak.Array([[0.52, -0.98, 2.00]]),
+        "track_phi": ak.Array([[1.02, -1.98, 0.00]]),
+        "track_vertex_nParticles": ak.Array([[3, 3, 3]]),
+        "track_d0": ak.Array([[0.1, 0.2, 0.3]]),
+        "track_z0": ak.Array([[0.5, 0.6, 0.7]]),
+        "track_chiSquared": ak.Array([[1.0, 1.1, 1.2]]),
+        "track_PixelShared": ak.Array([[0, 0, 0]]),
+        "track_SCTShared": ak.Array([[0, 0, 0]]),
+        "track_PixelHoles": ak.Array([[0, 0, 0]]),
+        "track_SCTHoles": ak.Array([[0, 0, 0]]),
+        "track_PixelHits": ak.Array([[3, 3, 3]]),
+        "track_SCTHits": ak.Array([[8, 8, 8]]),
+        "MSeg_x": ak.Array([[]]),
+        "MSeg_y": ak.Array([[]]),
+        "MSeg_z": ak.Array([[]]),
+        "MSeg_px": ak.Array([[]]),
+        "MSeg_py": ak.Array([[]]),
+        "MSeg_pz": ak.Array([[]]),
+        "MSeg_t0": ak.Array([[]]),
+        "MSeg_chiSquared": ak.Array([[]]),
+        "clus_eta": ak.Array([[[0.5], [-1.0]]]),
+        "clus_phi": ak.Array([[[1.0], [-2.0]]]),
+        "clus_pt": ak.Array([[[5.0], [6.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0], [100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0], [200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0], [300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0], [400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0], [500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0], [600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0], [700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0], [800.0]]]),
+        "clus_time": ak.Array([[[-14.0], [-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+    result = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+
+    assert len(result) == 2
+    # Jet 0 should have only Track 0
+    assert len(result.tracks[0]) == 1
+    assert abs(float(result.tracks[0].pt[0]) - 10.0) < 0.001
+
+    # Jet 1 should have only Track 1
+    assert len(result.tracks[1]) == 1
+    assert abs(float(result.tracks[1].pt[0]) - 20.0) < 0.001
+
+
+def test_track_near_jet_selection_phi_wraparound():
+    """Test that track delta_r calculation properly respects phi wraparound across [-pi, pi]."""
+    # Jet at phi = 3.1
+    # Track 0 at phi = -3.1 -> delta_phi across branch cut is ~0.083 < 0.2 (matched)
+    # Track 1 at phi = 2.7 -> delta_phi is 0.400 > 0.2 (excluded)
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0]]),
+        "jet_eta": ak.Array([[0.0]]),
+        "jet_phi": ak.Array([[3.1]]),
+        "track_pT": ak.Array([[10.0, 20.0]]),
+        "track_eta": ak.Array([[0.05, 0.00]]),
+        "track_phi": ak.Array([[-3.1, 2.7]]),
+        "track_vertex_nParticles": ak.Array([[2, 2]]),
+        "track_d0": ak.Array([[0.1, 0.2]]),
+        "track_z0": ak.Array([[0.5, 0.6]]),
+        "track_chiSquared": ak.Array([[1.0, 1.1]]),
+        "track_PixelShared": ak.Array([[0, 0]]),
+        "track_SCTShared": ak.Array([[0, 0]]),
+        "track_PixelHoles": ak.Array([[0, 0]]),
+        "track_SCTHoles": ak.Array([[0, 0]]),
+        "track_PixelHits": ak.Array([[3, 3]]),
+        "track_SCTHits": ak.Array([[8, 8]]),
+        "MSeg_x": ak.Array([[]]),
+        "MSeg_y": ak.Array([[]]),
+        "MSeg_z": ak.Array([[]]),
+        "MSeg_px": ak.Array([[]]),
+        "MSeg_py": ak.Array([[]]),
+        "MSeg_pz": ak.Array([[]]),
+        "MSeg_t0": ak.Array([[]]),
+        "MSeg_chiSquared": ak.Array([[]]),
+        "clus_eta": ak.Array([[[0.0]]]),
+        "clus_phi": ak.Array([[[3.1]]]),
+        "clus_pt": ak.Array([[[5.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0]]]),
+        "clus_time": ak.Array([[[-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+    result = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+
+    assert len(result) == 1
+    assert len(result.tracks[0]) == 1
+    assert abs(float(result.tracks[0].pt[0]) - 10.0) < 0.001
+
+
+def test_mseg_near_jet_selection():
+    """Test that only muon segments with abs(delta_phi) < JET_MSEG_DELTA_PHI (0.2) are selected.
+
+    Specifically verifies that negative delta_phi with absolute value >= 0.2 is correctly excluded,
+    which fixes the bug where delta_phi < 0.2 mistakenly accepted large negative delta_phi.
+    """
+    # Jet at eta=0.0, phi=1.0
+    # MSeg 0: phi = 1.10 (delta_phi = -0.10, abs = 0.10 < 0.2) -> INCLUDED
+    # MSeg 1: phi = 0.90 (delta_phi = +0.10, abs = 0.10 < 0.2) -> INCLUDED
+    # MSeg 2: phi = 1.50 (delta_phi = -0.50, abs = 0.50 > 0.2) -> EXCLUDED (buggy code included this!)
+    # MSeg 3: phi = 0.50 (delta_phi = +0.50, abs = 0.50 > 0.2) -> EXCLUDED
+    # MSeg 4: phi = -2.00 (delta_phi ~ -3.00, abs = 3.00 > 0.2) -> EXCLUDED (buggy code included this!)
+    phis = [1.10, 0.90, 1.50, 0.50, -2.00]
+    r = 100.0
+
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0]]),
+        "jet_eta": ak.Array([[0.0]]),
+        "jet_phi": ak.Array([[1.0]]),
+        "track_pT": ak.Array([[]]),
+        "track_eta": ak.Array([[]]),
+        "track_phi": ak.Array([[]]),
+        "track_vertex_nParticles": ak.Array([[]]),
+        "track_d0": ak.Array([[]]),
+        "track_z0": ak.Array([[]]),
+        "track_chiSquared": ak.Array([[]]),
+        "track_PixelShared": ak.Array([[]]),
+        "track_SCTShared": ak.Array([[]]),
+        "track_PixelHoles": ak.Array([[]]),
+        "track_SCTHoles": ak.Array([[]]),
+        "track_PixelHits": ak.Array([[]]),
+        "track_SCTHits": ak.Array([[]]),
+        "MSeg_x": ak.Array([[r * np.cos(p) for p in phis]]),
+        "MSeg_y": ak.Array([[r * np.sin(p) for p in phis]]),
+        "MSeg_z": ak.Array([[0.0, 10.0, 20.0, 30.0, 40.0]]),
+        "MSeg_px": ak.Array([[10.0, 10.0, 10.0, 10.0, 10.0]]),
+        "MSeg_py": ak.Array([[5.0, 5.0, 5.0, 5.0, 5.0]]),
+        "MSeg_pz": ak.Array([[30.0, 30.0, 30.0, 30.0, 30.0]]),
+        "MSeg_t0": ak.Array([[0.0, 1.0, 2.0, 3.0, 4.0]]),
+        "MSeg_chiSquared": ak.Array([[1.0, 1.1, 1.2, 1.3, 1.4]]),
+        "clus_eta": ak.Array([[[0.0]]]),
+        "clus_phi": ak.Array([[[1.0]]]),
+        "clus_pt": ak.Array([[[5.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0]]]),
+        "clus_time": ak.Array([[[-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+    result = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+
+    assert len(result) == 1
+    # Only MSeg 0 and MSeg 1 must be selected
+    assert len(result.msegs[0]) == 2
+    matched_t0 = list(result.msegs[0].t0)
+    assert abs(matched_t0[0] - 0.0) < 0.001
+    assert abs(matched_t0[1] - 1.0) < 0.001
+
+    # Verify mseg fields are preserved
+    assert "etaPos" in ak.fields(result.msegs[0])
+    assert "phiPos" in ak.fields(result.msegs[0])
+    assert "etaDir" in ak.fields(result.msegs[0])
+    assert "phiDir" in ak.fields(result.msegs[0])
+    assert "t0" in ak.fields(result.msegs[0])
+    assert "chiSquared" in ak.fields(result.msegs[0])
+    assert abs(float(result.msegs[0].phiPos[0]) - 1.10) < 0.01
+    assert abs(float(result.msegs[0].phiPos[1]) - 0.90) < 0.01
+
+
+def test_mseg_near_jet_selection_multi_jet():
+    """Test mseg matching with multiple jets, verifying no crosstalk between jets."""
+    # Jet 0 at phi=1.0, Jet 1 at phi=-2.0
+    # MSeg 0 at phi=1.05 (near Jet 0; delta_phi to Jet 1 is -3.05, abs=3.05 > 0.2)
+    # MSeg 1 at phi=-1.95 (near Jet 1; delta_phi to Jet 0 is 2.95, abs=2.95 > 0.2)
+    # MSeg 2 at phi=0.00 (far from both; delta_phi to Jet 1 is -2.0, abs=2.0 > 0.2)
+    phis = [1.05, -1.95, 0.00]
+    r = 100.0
+
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0, 60.0]]),
+        "jet_eta": ak.Array([[0.5, -1.0]]),
+        "jet_phi": ak.Array([[1.0, -2.0]]),
+        "track_pT": ak.Array([[]]),
+        "track_eta": ak.Array([[]]),
+        "track_phi": ak.Array([[]]),
+        "track_vertex_nParticles": ak.Array([[]]),
+        "track_d0": ak.Array([[]]),
+        "track_z0": ak.Array([[]]),
+        "track_chiSquared": ak.Array([[]]),
+        "track_PixelShared": ak.Array([[]]),
+        "track_SCTShared": ak.Array([[]]),
+        "track_PixelHoles": ak.Array([[]]),
+        "track_SCTHoles": ak.Array([[]]),
+        "track_PixelHits": ak.Array([[]]),
+        "track_SCTHits": ak.Array([[]]),
+        "MSeg_x": ak.Array([[r * np.cos(p) for p in phis]]),
+        "MSeg_y": ak.Array([[r * np.sin(p) for p in phis]]),
+        "MSeg_z": ak.Array([[0.0, 0.0, 0.0]]),
+        "MSeg_px": ak.Array([[10.0, 10.0, 10.0]]),
+        "MSeg_py": ak.Array([[5.0, 5.0, 5.0]]),
+        "MSeg_pz": ak.Array([[30.0, 30.0, 30.0]]),
+        "MSeg_t0": ak.Array([[10.0, 20.0, 30.0]]),
+        "MSeg_chiSquared": ak.Array([[1.0, 1.1, 1.2]]),
+        "clus_eta": ak.Array([[[0.5], [-1.0]]]),
+        "clus_phi": ak.Array([[[1.0], [-2.0]]]),
+        "clus_pt": ak.Array([[[5.0], [6.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0], [100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0], [200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0], [300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0], [400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0], [500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0], [600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0], [700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0], [800.0]]]),
+        "clus_time": ak.Array([[[-14.0], [-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+    result = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+
+    assert len(result) == 2
+    # Jet 0 should have only MSeg 0 (t0=10.0)
+    assert len(result.msegs[0]) == 1
+    assert abs(float(result.msegs[0].t0[0]) - 10.0) < 0.001
+
+    # Jet 1 should have only MSeg 1 (t0=20.0)
+    assert len(result.msegs[1]) == 1
+    assert abs(float(result.msegs[1].t0[0]) - 20.0) < 0.001
+
+
+def test_mseg_near_jet_selection_phi_wraparound():
+    """Test that mseg delta_phi calculation properly respects phi wraparound across [-pi, pi]."""
+    # Jet at phi = 3.1
+    # MSeg 0 at phi = -3.1 -> abs(delta_phi) across branch cut is ~0.083 < 0.2 (matched)
+    # MSeg 1 at phi = 2.5 -> abs(delta_phi) is 0.600 > 0.2 (excluded)
+    phis = [-3.1, 2.5]
+    r = 100.0
+
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0]]),
+        "jet_eta": ak.Array([[0.0]]),
+        "jet_phi": ak.Array([[3.1]]),
+        "track_pT": ak.Array([[]]),
+        "track_eta": ak.Array([[]]),
+        "track_phi": ak.Array([[]]),
+        "track_vertex_nParticles": ak.Array([[]]),
+        "track_d0": ak.Array([[]]),
+        "track_z0": ak.Array([[]]),
+        "track_chiSquared": ak.Array([[]]),
+        "track_PixelShared": ak.Array([[]]),
+        "track_SCTShared": ak.Array([[]]),
+        "track_PixelHoles": ak.Array([[]]),
+        "track_SCTHoles": ak.Array([[]]),
+        "track_PixelHits": ak.Array([[]]),
+        "track_SCTHits": ak.Array([[]]),
+        "MSeg_x": ak.Array([[r * np.cos(p) for p in phis]]),
+        "MSeg_y": ak.Array([[r * np.sin(p) for p in phis]]),
+        "MSeg_z": ak.Array([[0.0, 0.0]]),
+        "MSeg_px": ak.Array([[10.0, 10.0]]),
+        "MSeg_py": ak.Array([[5.0, 5.0]]),
+        "MSeg_pz": ak.Array([[30.0, 30.0]]),
+        "MSeg_t0": ak.Array([[0.0, 1.0]]),
+        "MSeg_chiSquared": ak.Array([[1.0, 1.1]]),
+        "clus_eta": ak.Array([[[0.0]]]),
+        "clus_phi": ak.Array([[[3.1]]]),
+        "clus_pt": ak.Array([[[5.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0]]]),
+        "clus_time": ak.Array([[[-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+    result = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+
+    assert len(result) == 1
+    assert len(result.msegs[0]) == 1
+    assert abs(float(result.msegs[0].t0[0]) - 0.0) < 0.001
+
+
+def test_track_and_mseg_empty_in_event():
+    """Test that empty track and mseg containers in an event work correctly with and without rotation."""
+    raw_data_dict = {
+        "runNumber": ak.Array([123456]),
+        "eventNumber": ak.Array([789012]),
+        "mcEventWeight": ak.Array([1.0]),
+        "jet_pt": ak.Array([[50.0]]),
+        "jet_eta": ak.Array([[0.5]]),
+        "jet_phi": ak.Array([[1.0]]),
+        "track_pT": ak.Array([[]]),
+        "track_eta": ak.Array([[]]),
+        "track_phi": ak.Array([[]]),
+        "track_vertex_nParticles": ak.Array([[]]),
+        "track_d0": ak.Array([[]]),
+        "track_z0": ak.Array([[]]),
+        "track_chiSquared": ak.Array([[]]),
+        "track_PixelShared": ak.Array([[]]),
+        "track_SCTShared": ak.Array([[]]),
+        "track_PixelHoles": ak.Array([[]]),
+        "track_SCTHoles": ak.Array([[]]),
+        "track_PixelHits": ak.Array([[]]),
+        "track_SCTHits": ak.Array([[]]),
+        "MSeg_x": ak.Array([[]]),
+        "MSeg_y": ak.Array([[]]),
+        "MSeg_z": ak.Array([[]]),
+        "MSeg_px": ak.Array([[]]),
+        "MSeg_py": ak.Array([[]]),
+        "MSeg_pz": ak.Array([[]]),
+        "MSeg_t0": ak.Array([[]]),
+        "MSeg_chiSquared": ak.Array([[]]),
+        "clus_eta": ak.Array([[[0.5]]]),
+        "clus_phi": ak.Array([[[1.0]]]),
+        "clus_pt": ak.Array([[[5.0]]]),
+        "clus_l1hcal": ak.Array([[[100.0]]]),
+        "clus_l2hcal": ak.Array([[[200.0]]]),
+        "clus_l3hcal": ak.Array([[[300.0]]]),
+        "clus_l4hcal": ak.Array([[[400.0]]]),
+        "clus_l1ecal": ak.Array([[[500.0]]]),
+        "clus_l2ecal": ak.Array([[[600.0]]]),
+        "clus_l3ecal": ak.Array([[[700.0]]]),
+        "clus_l4ecal": ak.Array([[[800.0]]]),
+        "clus_time": ak.Array([[[-14.0]]]),
+    }
+    raw_data = ak.Array([raw_data_dict])[0]
+
+    # Without rotation
+    result_no_rot = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=False)
+    assert len(result_no_rot) == 1
+    assert len(result_no_rot.tracks[0]) == 0
+    assert len(result_no_rot.msegs[0]) == 0
+
+    # With rotation
+    result_rot = convert_to_training_data(raw_data, DataType.QCD, "test_ds", rotation=True)
+    assert len(result_rot) == 1
+    assert len(result_rot.tracks[0]) == 0
+    assert len(result_rot.msegs[0]) == 0
+

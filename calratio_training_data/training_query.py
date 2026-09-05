@@ -664,7 +664,8 @@ def convert_to_training_data(
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
     delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
-    nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
+    track_mask = delta_r < JET_TRACK_DELTA_R
+    nearby_tracks = jet_track_pairs.track[track_mask]
 
     # delta-phi matching for muon segments.
     jet_mseg_pairs = ak.cartesian(
@@ -676,7 +677,7 @@ def convert_to_training_data(
         nested=True,
     )
     delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
-    mseg_mask = delta_phi < JET_MSEG_DELTA_PHI
+    mseg_mask = abs(delta_phi) < JET_MSEG_DELTA_PHI
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
     # Fill this dict with the leaves we want in the training data.
