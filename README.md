@@ -67,6 +67,9 @@ The dataset type:
 * `qcd` - Will extract all good jets
 * `data` - Will extract all good jets from events that have fired a signal trigger
 * `bib` - Will extract jets that match a BIB trigger, but not the tighter signal triggers.
+* `ttbar` - Will extract all good hadronic jets (per-jet EMF < 0.97) from ttbar events
+* `cr_ttbar` - Control region ttbar extraction (opposite-sign e-mu events, per-jet EMF > 0.97)
+* `cr_data` - Control region data extraction
 
 As of this writing only `qcd` and `signal` are implemented.
 

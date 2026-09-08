@@ -13,8 +13,10 @@ from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
+from func_adl_servicex_xaodr25.xAOD.electron_v1 import Electron_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
+from func_adl_servicex_xaodr25.xAOD.muon_v1 import Muon_v1
 from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
@@ -24,7 +26,7 @@ from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
-from calratio_training_data.triggers import trigger_bib_filter
+from calratio_training_data.triggers import trigger_bib_filter, trigger_cr_ttbar_filter
 
 
 from calratio_training_data.constants import (
@@ -37,6 +39,7 @@ from calratio_training_data.constants import (
     LLP_Lz_max,
     LLP_Lz_min,
     EventLabels,
+    CREventLabels,
 )
 
 from .cpp_xaod_utils import (
@@ -48,7 +51,6 @@ from .cpp_xaod_utils import (
 )
 
 from calratio_training_data.fetch import DataType
-from calratio_training_data.label_utils import extract_param_block
 
 
 vector.register_awkward()
@@ -64,7 +66,6 @@ class RunConfig:
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
     datatype: DataType = DataType.SIGNAL
-    desc_label: str = ""
 
 
 @dataclass
@@ -89,6 +90,12 @@ class TopLevelEvent:
     bsm_particles: FADLStream[TruthParticle_v1]
 
 
+@dataclass
+class CRTopLevelEvent(TopLevelEvent):
+    electrons: FADLStream[Electron_v1]
+    muons: FADLStream[Muon_v1]
+
+
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
     return (
@@ -108,42 +115,89 @@ def build_preselection(data_type: DataType):
     if data_type == DataType.BIB:
         query_base = trigger_bib_filter(query_base)
 
+    is_cr = data_type in (DataType.CR_TTBAR, DataType.CR_DATA)
+    if is_cr:
+        query_base = trigger_cr_ttbar_filter(query_base)
+
     # Do top level object filtering
-    query_base_objects = query_base.Select(
-        lambda e: TopLevelEvent(
-            event_info=e.EventInfo("EventInfo"),
-            vertices=e.Vertices("PrimaryVertices").Where(
-                lambda v: v.vertexType() == VxType.VertexType.PriVtx
-            ),
-            pv_tracks=(
-                e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
-                .First()
-                .trackParticleLinks()
-                .Where(lambda t: t.isValid())  # type: ignore
-            ),
-            muon_segments=e.MuonSegments("MuonSegments"),
-            jets=[
-                j
-                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if good_training_jet(j)
-            ],  # type: ignore
-            jet_clusters=[
-                [
-                    cvt_to_raw_calocluster(cl)
-                    for cl in j.constituentLinks()
-                    if cl.isValid()
-                ]
-                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if good_training_jet(j)
-            ],  # type: ignore
-            all_tracks=e.TrackParticles("InDetTrackParticles"),
-            topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
-            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
-            .Where(lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51)
-            .Where(lambda p: not particle_radiates(p)),
+    if is_cr:
+        query_base_objects = query_base.Select(
+            lambda e: CRTopLevelEvent(
+                event_info=e.EventInfo("EventInfo"),
+                vertices=e.Vertices("PrimaryVertices").Where(
+                    lambda v: v.vertexType() == VxType.VertexType.PriVtx
+                ),
+                pv_tracks=(
+                    e.Vertices("PrimaryVertices")
+                    .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
+                    .First()
+                    .trackParticleLinks()
+                    .Where(lambda t: t.isValid())  # type: ignore
+                ),
+                muon_segments=e.MuonSegments("MuonSegments"),
+                jets=[
+                    j
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                jet_clusters=[
+                    [
+                        cvt_to_raw_calocluster(cl)
+                        for cl in j.constituentLinks()
+                        if cl.isValid()
+                    ]
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                all_tracks=e.TrackParticles("InDetTrackParticles"),
+                topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
+                bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
+                .Where(
+                    lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
+                )
+                .Where(lambda p: not particle_radiates(p)),
+                electrons=e.Electrons("Electrons", calibrate=False),
+                muons=e.Muons("Muons", calibrate=False),
+            )
         )
-    )
+    else:
+        query_base_objects = query_base.Select(
+            lambda e: TopLevelEvent(
+                event_info=e.EventInfo("EventInfo"),
+                vertices=e.Vertices("PrimaryVertices").Where(
+                    lambda v: v.vertexType() == VxType.VertexType.PriVtx
+                ),
+                pv_tracks=(
+                    e.Vertices("PrimaryVertices")
+                    .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
+                    .First()
+                    .trackParticleLinks()
+                    .Where(lambda t: t.isValid())  # type: ignore
+                ),
+                muon_segments=e.MuonSegments("MuonSegments"),
+                jets=[
+                    j
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                jet_clusters=[
+                    [
+                        cvt_to_raw_calocluster(cl)
+                        for cl in j.constituentLinks()
+                        if cl.isValid()
+                    ]
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                all_tracks=e.TrackParticles("InDetTrackParticles"),
+                topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
+                bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
+                .Where(
+                    lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
+                )
+                .Where(lambda p: not particle_radiates(p)),
+            )
+        )
 
     # Preselection
     query_preselection = query_base_objects.Where(
@@ -171,6 +225,8 @@ def fetch_raw_training_data(
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
     is_bib = config.datatype == DataType.BIB
+    is_cr = config.datatype in (DataType.CR_TTBAR, DataType.CR_DATA)
+    is_ttbbar = config.datatype == DataType.TTBAR
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -347,6 +403,22 @@ def fetch_raw_training_data(
                 if is_bib
                 else {}
             ),
+            **(
+                {
+                    "electron_charge": [el.charge() for el in e.electrons],
+                    "muon_charge": [mu.charge() for mu in e.muons],
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
+                }
+                if is_cr
+                else {}
+            ),
+            **(
+                {
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
+                }
+                if is_ttbbar
+                else {}
+            ),
         }
     )
 
@@ -358,7 +430,6 @@ def convert_to_training_data(
     datatype: DataType,
     ds_name: str,
     rotation: bool = True,
-    desc_label="",
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -453,6 +524,8 @@ def convert_to_training_data(
         np.float32,
     )
 
+    event_mask = slice(None)
+
     # Check to see if we have any jets that are missing clusters:
     # no_cluster_mask = len(clusters.pt) == 0
 
@@ -545,6 +618,45 @@ def convert_to_training_data(
         )
         llp_match_jet = llps[llp_match_jet_index]
 
+    # CR-specific event-level selection applied before per-jet expansion.
+    # Event selection for control region with ttbar dataset
+    if datatype in (DataType.CR_TTBAR, DataType.CR_DATA):
+        electron_charge = ak.values_astype(data["electron_charge"], np.int8)
+        muon_charge = ak.values_astype(data["muon_charge"], np.int8)
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+
+        has_pos_e = ak.any(electron_charge > 0, axis=1)
+        has_neg_e = ak.any(electron_charge < 0, axis=1)
+        has_pos_mu = ak.any(muon_charge > 0, axis=1)
+        has_neg_mu = ak.any(muon_charge < 0, axis=1)
+
+        # opposite-sign  e-mu
+        os_emu_mask = (has_pos_e & has_neg_mu) | (has_neg_e & has_pos_mu)
+        if not ak.any(os_emu_mask):
+            return ak.Array([])
+
+        event_mask = os_emu_mask
+        jets = jets[event_mask]
+        tracks = tracks[event_mask]
+        clusters = clusters[event_mask]
+        msegs = msegs[event_mask]
+        msegs_p = msegs_p[event_mask]
+
+        # EMF selection is per jet, so apply it only after the event-level e-mu
+        # selection has been applied to all event-shaped arrays.
+        emf_mask = jet_emf[event_mask] > 0.97
+        jets = jets[emf_mask]
+        clusters = clusters[emf_mask]
+
+    # Signal-region TTBAR (hadronic) selection: keep only jets with EMF < 0.97.
+    # This is the per-jet complement of the CR's > 0.97 cut, applied on the default
+    # (signal-region) path with no event-level pre-mask.
+    if datatype == DataType.TTBAR:
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+        emf_mask = jet_emf[event_mask] < 0.97
+        jets = jets[emf_mask]
+        clusters = clusters[emf_mask]
+
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
         return ak.Array([])  # type: ignore
@@ -552,7 +664,8 @@ def convert_to_training_data(
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
     delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
-    nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
+    track_mask = delta_r < JET_TRACK_DELTA_R
+    nearby_tracks = jet_track_pairs.track[track_mask]
 
     # delta-phi matching for muon segments.
     jet_mseg_pairs = ak.cartesian(
@@ -564,7 +677,7 @@ def convert_to_training_data(
         nested=True,
     )
     delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
-    mseg_mask = delta_phi < JET_MSEG_DELTA_PHI
+    mseg_mask = abs(delta_phi) < JET_MSEG_DELTA_PHI
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
     # Fill this dict with the leaves we want in the training data.
@@ -573,16 +686,16 @@ def convert_to_training_data(
     # Build the final per-jet training data. This requires reshaping and broadcasting
     # a number of arrays we have.
     per_jet_training_data_dict["runNumber"] = ak.flatten(
-        ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
+        ak.broadcast_arrays(data["runNumber"][event_mask], jets.pt)[0], axis=1
     )
     per_jet_training_data_dict["eventNumber"] = ak.flatten(
-        ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
+        ak.broadcast_arrays(data["eventNumber"][event_mask], jets.pt)[0], axis=1
     )
-    if datatype == DataType.SIGNAL or datatype == DataType.QCD:
+    if datatype in (DataType.SIGNAL, DataType.QCD, DataType.TTBAR, DataType.CR_TTBAR):
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
-            ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
+            ak.broadcast_arrays(data["mcEventWeight"][event_mask], jets.pt)[0], axis=1
         )
-    if datatype == DataType.BIB:
+    if datatype in (DataType.BIB, DataType.CR_DATA):
         # Giving BIB data mcEventWeight of 1
         # Follows convention from CalRatioTrainer
         per_jet_training_data_dict["mcEventWeight"] = ak.Array(
@@ -645,7 +758,7 @@ def convert_to_training_data(
             per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
 
-    if datatype in (DataType.BIB, DataType.QCD):
+    if datatype in (DataType.BIB, DataType.QCD, DataType.TTBAR):
         n = len(per_jet_training_data_dict["pt"])
 
         # Define a single dummy record
@@ -675,23 +788,15 @@ def convert_to_training_data(
         DataType.SIGNAL: EventLabels.signal.value,
         DataType.BIB: EventLabels.BIB.value,
         DataType.QCD: EventLabels.QCD.value,
+        DataType.TTBAR: EventLabels.ttbar.value,
+        DataType.CR_TTBAR: CREventLabels.MC.value,
+        DataType.CR_DATA: CREventLabels.data.value,
     }
     label_value = label_map[datatype]
 
     per_jet_training_data_dict["label"] = ak.Array(
         [label_value] * len(per_jet_training_data_dict["pt"])
     )
-
-    # Adding descriptive label
-    if datatype == DataType.SIGNAL:
-        full_label = desc_label + "_" + extract_param_block(ds_name)
-        per_jet_training_data_dict["desc_label"] = ak.Array(
-            [full_label] * len(per_jet_training_data_dict["pt"])
-        )
-    else:
-        per_jet_training_data_dict["desc_label"] = ak.Array(
-            [desc_label] * len(per_jet_training_data_dict["pt"])
-        )
 
     # Finally, build the data we will write out!
     training_data = ak.zip(
@@ -756,7 +861,6 @@ def fetch_training_data(ds_name, config: RunConfig):
             datatype=config.datatype,
             ds_name=ds_name,
             rotation=config.rotation,
-            desc_label=config.desc_label,
         )
 
 
