@@ -72,40 +72,6 @@ def expand_inputs(inputs):
     return expanded
 
 
-def _unify_schema(arrays):
-    """
-    Make all arrays share the same record fields and dtypes so that
-    ``ak.concatenate`` does not produce a union type (which cannot be
-    written to parquet). Missing fields are filled with sensible defaults.
-    """
-
-    all_fields = []
-    for arr in arrays:
-        for field in ak.fields(arr):
-            if field not in all_fields:
-                all_fields.append(field)
-
-    unified = []
-    for arr in arrays:
-        fields = ak.fields(arr)
-        for field in all_fields:
-            if field not in fields:
-                if field == "desc_label":
-                    arr = ak.with_field(
-                        arr, ak.Array([""] * len(arr)), field
-                    )
-                else:
-                    arr = ak.with_field(
-                        arr, ak.full_like(arr["label"], 0), field
-                    )
-        arr = ak.with_field(
-            arr, ak.values_astype(arr["mcEventWeight"], "float64"), "mcEventWeight"
-        )
-        unified.append(arr)
-
-    return unified
-
-
 def combine_training_data(config: CombineConfig):
 
     arrays = []
@@ -134,7 +100,7 @@ def combine_training_data(config: CombineConfig):
 
         arrays.append(arr)
 
-    combined = ak.concatenate(_unify_schema(arrays))
+    combined = ak.concatenate(arrays)
 
     ak.to_parquet(combined, config.output_path)
 

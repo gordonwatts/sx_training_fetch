@@ -44,13 +44,13 @@ def do_rotations(data: ak.Array, datatype, jets: Optional[ak.Array] = None):
         # eta flip
         eta_sign = ak.sum(np.multiply(data.eta, data.pt), axis=1)
         eta_sign = ak.fill_none(eta_sign, 0)
-        eta_sign = ak.where(eta_sign >= 0, 1, -1)
+        eta_sign = np.vectorize(lambda x: 1 * (x >= 0) + (-1) * (x < 0))(eta_sign)
         data["eta"] = data.eta * eta_sign
 
         # phi flip
         phi_sign = ak.sum(np.multiply(data.phi, data.pt), axis=1)
         phi_sign = ak.fill_none(phi_sign, 0)
-        phi_sign = ak.where(phi_sign >= 0, 1, -1)
+        phi_sign = np.vectorize(lambda x: 1 * (x >= 0) + (-1) * (x < 0))(phi_sign)
         data["phi"] = data.phi * phi_sign
 
     if datatype == "mseg" and data is not None:
