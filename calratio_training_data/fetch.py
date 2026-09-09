@@ -6,7 +6,6 @@ from pathlib import Path
 
 import typer
 
-
 app = typer.Typer()
 
 
@@ -37,13 +36,14 @@ class DataType(str, Enum):
     QCD = "qcd"
     DATA = "data"
     BIB = "bib"
-    CR = "cr"
+    CR_MC = "cr_mc"
+    CR_DATA = "cr_data"
 
 
 @app.command("fetch")
 def fetch_command(
     data_type: DataType = typer.Argument(
-        ..., help="Type of data to fetch (signal, qcd, data, bib, cr)"
+        ..., help="Type of data to fetch (signal, qcd, data, bib, cr_mc, cr_data)"
     ),
     dataset: str = typer.Argument(..., help="The data source"),
     verbosity: int = typer.Option(
