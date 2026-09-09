@@ -455,6 +455,7 @@ def test_convert_to_training_data_cr_applies_emf_mask_per_jet():
     assert abs(float(result.eta[0]) - 0.5) < 0.001
     assert abs(float(result.phi[0]) - 1.0) < 0.001
 
+
 def test_convert_to_training_data_ttbar_applies_emf_mask_per_jet():
     """Test TTBAR per-jet EMF selection (hadronic jets, EMF < 0.97)."""
     raw_data_dict = {
@@ -503,7 +504,7 @@ def test_convert_to_training_data_ttbar_applies_emf_mask_per_jet():
     raw_data = ak.Array([raw_data_dict])[0]
 
     result = convert_to_training_data(
-        raw_data, DataType.TTBAR, "ttbar_dataset", rotation=False, desc_label="ttbar_dataset"
+        raw_data, DataType.TTBAR, "ttbar_dataset", rotation=False
     )
 
     # Event 0 keeps 1 jet (EMF 0.2 < 0.97), event 1 keeps 2 jets (EMF 0.5, 0.8).
@@ -513,7 +514,6 @@ def test_convert_to_training_data_ttbar_applies_emf_mask_per_jet():
     assert abs(float(result.mcEventWeight[0]) - 0.5) < 0.001
     assert abs(float(result.pt[0]) - 50.0) < 0.001
     assert all(label == 3 for label in result.label)
-    assert result.desc_label[0] == "ttbar_dataset"
 
 
 def test_convert_to_training_no_near_llps():
@@ -596,8 +596,8 @@ def test_convert_to_training_no_near_llps():
 def test_track_near_jet_selection():
     """Test that only tracks within JET_TRACK_DELTA_R (0.2) of a jet are selected."""
     # Jet at eta=0.5, phi=1.0
-    # Track 0: eta=0.55, phi=1.05 (pt=11.0) -> delta_r = sqrt(0.05^2 + 0.05^2) = 0.0707 < 0.2 (matched)
-    # Track 1: eta=0.45, phi=0.95 (pt=12.0) -> delta_r = sqrt(0.05^2 + 0.05^2) = 0.0707 < 0.2 (matched)
+    # Track 0: eta=0.55, phi=1.05 (pt=11.0) -> delta_r = 0.071 < 0.2 (matched)
+    # Track 1: eta=0.45, phi=0.95 (pt=12.0) -> delta_r = 0.071 < 0.2 (matched)
     # Track 2: eta=0.80, phi=1.00 (pt=13.0) -> delta_r = 0.300 > 0.2 (excluded, eta difference)
     # Track 3: eta=0.50, phi=1.30 (pt=14.0) -> delta_r = 0.300 > 0.2 (excluded, phi difference)
     # Track 4: eta=0.80, phi=1.30 (pt=15.0) -> delta_r = 0.424 > 0.2 (excluded, both)
@@ -784,9 +784,9 @@ def test_mseg_near_jet_selection():
     # Jet at eta=0.0, phi=1.0
     # MSeg 0: phi = 1.10 (delta_phi = -0.10, abs = 0.10 < 0.2) -> INCLUDED
     # MSeg 1: phi = 0.90 (delta_phi = +0.10, abs = 0.10 < 0.2) -> INCLUDED
-    # MSeg 2: phi = 1.50 (delta_phi = -0.50, abs = 0.50 > 0.2) -> EXCLUDED (buggy code included this!)
+    # MSeg 2: phi = 1.50 (delta_phi = -0.50, abs = 0.50 > 0.2) -> EXCLUDED (buggy code included)
     # MSeg 3: phi = 0.50 (delta_phi = +0.50, abs = 0.50 > 0.2) -> EXCLUDED
-    # MSeg 4: phi = -2.00 (delta_phi ~ -3.00, abs = 3.00 > 0.2) -> EXCLUDED (buggy code included this!)
+    # MSeg 4: phi = -2.00 (delta_phi ~ -3.00, abs = 3.00 > 0.2) -> EXCLUDED (buggy code included)
     phis = [1.10, 0.90, 1.50, 0.50, -2.00]
     r = 100.0
 
@@ -973,7 +973,9 @@ def test_mseg_near_jet_selection_phi_wraparound():
 
 
 def test_track_and_mseg_empty_in_event():
-    """Test that empty track and mseg containers in an event work correctly with and without rotation."""
+    """Test that empty track and mseg containers in an event work correctly
+    with and without rotation.
+    """
     raw_data_dict = {
         "runNumber": ak.Array([123456]),
         "eventNumber": ak.Array([789012]),
@@ -1028,4 +1030,3 @@ def test_track_and_mseg_empty_in_event():
     assert len(result_rot) == 1
     assert len(result_rot.tracks[0]) == 0
     assert len(result_rot.msegs[0]) == 0
-
