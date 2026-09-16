@@ -1,8 +1,15 @@
 import awkward as ak
 import numpy as np
 
-from calratio_training_data.training_query import convert_to_training_data
+import pytest
+
+from calratio_training_data.training_query import (
+    _extract_dsid,
+    convert_to_training_data,
+    get_cross_section,
+)
 from calratio_training_data.fetch import DataType
+from calratio_training_data.constants import CR_DIJET_MAX_JETS, CREventLabels
 
 
 def test_convert_to_training_data_mc_no_rotation():
@@ -1030,3 +1037,300 @@ def test_track_and_mseg_empty_in_event():
     assert len(result_rot) == 1
     assert len(result_rot.tracks[0]) == 0
     assert len(result_rot.msegs[0]) == 0
+
+
+def _cr_dijet_raw_data(jets, mc_weight=0.5):
+    """Build a minimal single-event raw record for dijet control region tests.
+
+    `jets` is a list of (pt, eta, phi) tuples, in whatever order. Each jet is given
+    exactly one cluster so that none are dropped by the empty-cluster filter.
+    """
+    pts = [j[0] for j in jets]
+    etas = [j[1] for j in jets]
+    phis = [j[2] for j in jets]
+
+    return ak.Array(
+        [
+            {
+                "runNumber": ak.Array([123456]),
+                "eventNumber": ak.Array([789012]),
+                "mcEventWeight": ak.Array([mc_weight]),
+                "jet_pt": ak.Array([pts]),
+                "jet_eta": ak.Array([etas]),
+                "jet_phi": ak.Array([phis]),
+                "track_pT": ak.Array([[10.0]]),
+                "track_eta": ak.Array([[etas[0]]]),
+                "track_phi": ak.Array([[phis[0]]]),
+                "track_vertex_nParticles": ak.Array([[2]]),
+                "track_d0": ak.Array([[0.1]]),
+                "track_z0": ak.Array([[0.5]]),
+                "track_chiSquared": ak.Array([[1.0]]),
+                "track_PixelShared": ak.Array([[0]]),
+                "track_SCTShared": ak.Array([[0]]),
+                "track_PixelHoles": ak.Array([[0]]),
+                "track_SCTHoles": ak.Array([[0]]),
+                "track_PixelHits": ak.Array([[3]]),
+                "track_SCTHits": ak.Array([[8]]),
+                "MSeg_x": ak.Array([[100.0]]),
+                "MSeg_y": ak.Array([[50.0]]),
+                "MSeg_z": ak.Array([[300.0]]),
+                "MSeg_px": ak.Array([[10.0]]),
+                "MSeg_py": ak.Array([[5.0]]),
+                "MSeg_pz": ak.Array([[30.0]]),
+                "MSeg_t0": ak.Array([[0.0]]),
+                "MSeg_chiSquared": ak.Array([[1.2]]),
+                "clus_eta": ak.Array([[[e] for e in etas]]),
+                "clus_phi": ak.Array([[[p] for p in phis]]),
+                "clus_pt": ak.Array([[[5.0] for _ in pts]]),
+                "clus_l1hcal": ak.Array([[[100.0] for _ in pts]]),
+                "clus_l2hcal": ak.Array([[[200.0] for _ in pts]]),
+                "clus_l3hcal": ak.Array([[[300.0] for _ in pts]]),
+                "clus_l4hcal": ak.Array([[[400.0] for _ in pts]]),
+                "clus_l1ecal": ak.Array([[[500.0] for _ in pts]]),
+                "clus_l2ecal": ak.Array([[[600.0] for _ in pts]]),
+                "clus_l3ecal": ak.Array([[[700.0] for _ in pts]]),
+                "clus_l4ecal": ak.Array([[[800.0] for _ in pts]]),
+                "clus_time": ak.Array([[[0.0] for _ in pts]]),
+            }
+        ]
+    )[0]
+
+
+# A balanced, back-to-back pair that passes every dijet control region cut:
+# lead 450 GeV, sublead 420 GeV, opposite in phi.
+#   asymmetry = 30 / 870 = 0.034, H_T,Miss = 30 GeV, |dphi| = pi
+_CR_DIJET_GOOD_JETS = [(450.0, 0.5, 0.0), (420.0, -0.5, np.pi)]
+
+
+def test_cr_dijet_accepts_balanced_back_to_back_event():
+    """An event passing all five dijet cuts keeps both of its jets."""
+    raw_data = _cr_dijet_raw_data(_CR_DIJET_GOOD_JETS)
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert len(result) == 2
+    assert abs(float(result.pt[0]) - 450.0) < 0.001
+    assert abs(float(result.pt[1]) - 420.0) < 0.001
+
+
+def test_cr_dijet_rejects_soft_leading_jet():
+    """Leading jet below CR_DIJET_LEAD_PT_MIN drops the event.
+
+    Everything else is kept passing: asymmetry 10/770, H_T,Miss 10 GeV, dphi pi.
+    """
+    raw_data = _cr_dijet_raw_data([(390.0, 0.5, 0.0), (380.0, -0.5, np.pi)])
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert len(result) == 0
+
+
+def test_cr_dijet_rejects_non_back_to_back_event():
+    """|dphi| below CR_DIJET_DELTA_PHI_MIN drops the event.
+
+    Sublead sits at phi = 2.9, so |dphi| = 2.9 < 3.0 while the other four cuts
+    still pass (asymmetry 0.034, H_T,Miss ~109 GeV).
+    """
+    raw_data = _cr_dijet_raw_data([(450.0, 0.5, 0.0), (420.0, -0.5, 2.9)])
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert len(result) == 0
+
+
+def test_cr_dijet_rejects_unbalanced_event():
+    """Dijet asymmetry above CR_DIJET_ASYMMETRY_MAX drops the event.
+
+    Two recoiling jets keep H_T,Miss at 10 GeV and dphi at pi, but the leading
+    pair is 450 vs 240, giving an asymmetry of 210/690 = 0.304.
+    """
+    raw_data = _cr_dijet_raw_data(
+        [(450.0, 0.5, 0.0), (240.0, -0.5, np.pi), (220.0, -0.4, np.pi)]
+    )
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert len(result) == 0
+
+
+def test_cr_dijet_rejects_high_ht_miss_event():
+    """H_T,Miss above CR_DIJET_HT_MISS_MAX drops the event.
+
+    450 against 300 back-to-back leaves 150 GeV of H_T,Miss while the asymmetry
+    (0.2) and dphi (pi) cuts still pass.
+    """
+    raw_data = _cr_dijet_raw_data([(450.0, 0.5, 0.0), (300.0, -0.5, np.pi)])
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert len(result) == 0
+
+
+def test_cr_dijet_keeps_only_leading_jets():
+    """Only CR_DIJET_MAX_JETS jets per event are written out.
+
+    Seven jets are supplied; the extra soft ones are arranged in cancelling pairs
+    so the event still passes the H_T,Miss cut.
+    """
+    jets = [
+        (450.0, 0.5, 0.0),
+        (420.0, -0.5, np.pi),
+        (100.0, 0.1, np.pi / 2),
+        (100.0, 0.2, -np.pi / 2),
+        (80.0, 0.3, 0.7),
+        (80.0, 0.4, 0.7 + np.pi),
+        (60.0, 0.6, np.pi),
+    ]
+    raw_data = _cr_dijet_raw_data(jets)
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert len(result) == CR_DIJET_MAX_JETS
+
+    # Kept jets should be the five hardest, in descending pT order.
+    kept_pt = [float(p) for p in result.pt]
+    assert kept_pt == sorted(kept_pt, reverse=True)
+    assert abs(kept_pt[0] - 450.0) < 0.001
+    assert abs(kept_pt[-1] - 80.0) < 0.001
+
+
+def test_cr_dijet_data_gets_unit_weight_and_data_label():
+    """CR_DIJET_DATA follows the BIB convention of mcEventWeight = 1."""
+    raw_data = _cr_dijet_raw_data(_CR_DIJET_GOOD_JETS, mc_weight=0.5)
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_DATA, "cr_ds", rotation=False
+    )
+
+    assert all(abs(float(w) - 1.0) < 0.001 for w in result.mcEventWeight)
+    assert all(int(lbl) == CREventLabels.data.value for lbl in result.label)
+
+
+def test_cr_dijet_mc_scales_weight_and_uses_mc_label():
+    """CR_DIJET_MC multiplies the generator weight by mc_weight_scale."""
+    raw_data = _cr_dijet_raw_data(_CR_DIJET_GOOD_JETS, mc_weight=0.5)
+
+    result = convert_to_training_data(
+        raw_data,
+        DataType.CR_DIJET_MC,
+        "cr_ds",
+        rotation=False,
+        mc_weight_scale=4.0,
+    )
+
+    assert all(abs(float(w) - 2.0) < 0.001 for w in result.mcEventWeight)
+    assert all(int(lbl) == CREventLabels.MC.value for lbl in result.label)
+
+
+def test_cr_dijet_mc_weight_scale_defaults_to_unity():
+    """Leaving mc_weight_scale off passes the generator weight through."""
+    raw_data = _cr_dijet_raw_data(_CR_DIJET_GOOD_JETS, mc_weight=0.5)
+
+    result = convert_to_training_data(
+        raw_data, DataType.CR_DIJET_MC, "cr_ds", rotation=False
+    )
+
+    assert all(abs(float(w) - 0.5) < 0.001 for w in result.mcEventWeight)
+
+
+def test_extract_dsid_from_scoped_dataset_name():
+    """Rucio names carry a scope prefix before the dataset name."""
+    ds = (
+        "mc23_13p6TeV:mc23_13p6TeV.801168.Py8EG_A14NNPDF23LO_jj_JZ2"
+        ".deriv.DAOD_LLP1.e8514_s4369_r15224_p6266"
+    )
+
+    assert _extract_dsid(ds) == 801168
+
+
+def test_extract_dsid_from_unscoped_dataset_name():
+    """The same name without the scope prefix should give the same DSID."""
+    ds = (
+        "mc23_13p6TeV.801168.Py8EG_A14NNPDF23LO_jj_JZ2"
+        ".deriv.DAOD_LLP1.e8514_s4369_r15224_p6266"
+    )
+
+    assert _extract_dsid(ds) == 801168
+
+
+def _write_pmg_db(tmp_path):
+    """Write a small PMG cross-section database in the real file format."""
+    header = (
+        "dataset_number/I:physics_short/C:crossSection_pb/D:genFiltEff/D:"
+        "kFactor/D:relUncertUP/D:relUncertDOWN/D:generator_name/C:etag/C"
+    )
+    rows = [
+        "801168\tTestJZ2\t10.0\t0.5\t2.0\t0.1\t0.1\tPythia8\te8514",
+        "801169\tTestJZ3\t4.0\t0.25\t1.0\t0.1\t0.1\tPythia8\te8514",
+    ]
+    db_file = tmp_path / "PMGxsecDB_test.txt"
+    db_file.write_text("\n".join([header] + rows) + "\n")
+    return str(db_file)
+
+
+def test_get_cross_section_multiplies_xsec_kfactor_and_filter_eff(tmp_path):
+    """Base result is crossSection_pb * kFactor * genFiltEff."""
+    db = _write_pmg_db(tmp_path)
+
+    # 10.0 * 2.0 * 0.5
+    assert abs(get_cross_section(801168, pmg_xsec_db=db) - 10.0) < 1e-9
+    # 4.0 * 1.0 * 0.25
+    assert abs(get_cross_section(801169, pmg_xsec_db=db) - 1.0) < 1e-9
+
+
+def test_get_cross_section_applies_branching_ratio(tmp_path):
+    """An additional branching ratio scales the result down."""
+    db = _write_pmg_db(tmp_path)
+
+    result = get_cross_section(
+        801168, additional_branching_ratio=0.1, pmg_xsec_db=db
+    )
+
+    assert abs(result - 1.0) < 1e-9
+
+
+def test_get_cross_section_applies_additional_kfactor_multiplicatively(tmp_path):
+    """A k-factor must multiply, not add.
+
+    With a base of 10.0 and a k-factor of 3.0 the answer is 30.0; an additive
+    bug would give 13.0.
+    """
+    db = _write_pmg_db(tmp_path)
+
+    result = get_cross_section(801168, additional_kfactor=3.0, pmg_xsec_db=db)
+
+    assert abs(result - 30.0) < 1e-9
+
+
+def test_get_cross_section_combines_branching_ratio_and_kfactor(tmp_path):
+    """Both optional factors apply together."""
+    db = _write_pmg_db(tmp_path)
+
+    result = get_cross_section(
+        801168,
+        additional_branching_ratio=0.5,
+        additional_kfactor=3.0,
+        pmg_xsec_db=db,
+    )
+
+    assert abs(result - 15.0) < 1e-9
+
+
+def test_get_cross_section_unknown_dsid_raises(tmp_path):
+    """A DSID missing from the database is an error, not a silent zero."""
+    db = _write_pmg_db(tmp_path)
+
+    with pytest.raises(ValueError, match="999999"):
+        get_cross_section(999999, pmg_xsec_db=db)

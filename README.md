@@ -30,14 +30,18 @@ This command fetches the data from a sample and formats it as regular training i
 ```text
 > calratio_training_data fetch --help
                                                                                                                               
- Usage: calratio_training_data fetch [OPTIONS] DATA_TYPE:{signal|qcd|data|bib}                                                
-                                     DATASET                                                                                  
+ Usage: calratio_training_data fetch [OPTIONS] DATA_TYPE:{signal|qcd|data|bib|t                                               
+                                     tbar|cr_ttbar|cr_dijet_mc|cr_dijet_data|cr                                               
+                                     _data} DATASET                                                                           
                                                                                                                               
  Fetch training data for cal ratio.
 
 ╭─ Arguments ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    data_type      DATA_TYPE:{signal|qcd|data|bib}  Type of data to fetch (signal, qcd, data, bib) [required]             │
-│ *    dataset        TEXT                             The data source [required]                                            │
+│ *    data_type      DATA_TYPE:{signal|qcd|data|bib|ttbar|cr_ttbar|cr_d  Type of data to fetch (signal, qcd, data, bib,     │
+│                     ijet_mc|cr_dijet_data|cr_data}                      ttbar, cr_ttbar, cr_data, cr_dijet_mc,             │
+│                                                                         cr_dijet_data)                                     │
+│                                                                         [required]                                         │
+│ *    dataset        TEXT                                                The data source [required]                         │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --verbose       -v                   INTEGER  Increase verbosity level (use -v for INFO, -vv for DEBUG) [default: 0]       │
@@ -70,6 +74,30 @@ The dataset type:
 * `ttbar` - Will extract all good hadronic jets (per-jet EMF < 0.97) from ttbar events
 * `cr_ttbar` - Control region ttbar extraction (opposite-sign e-mu events, per-jet EMF > 0.97)
 * `cr_data` - Control region data extraction
+* `cr_dijet_mc` - Dijet control region MC extraction (see below)
+* `cr_dijet_data` - Dijet control region data extraction (see below)
+
+#### The dijet control region
+
+`cr_dijet_mc` and `cr_dijet_data` select a QCD-dominated dijet control region. Events must fire
+`HLT_j400_pf_ftf_preselj225_L1J100` and contain at least two good training jets, and then pass all of:
+
+| Cut | Value |
+|-----|-------|
+| Leading jet pT | > 400 GeV |
+| Subleading jet pT | > 60 GeV |
+| \|Delta phi(lead, sublead)\| | > 3.0 rad |
+| Dijet pT asymmetry | < 0.3 |
+| H_T,Miss | < 120 GeV |
+
+Only the 5 leading jets per surviving event are written out. The cut values live in `constants.py` as
+the `CR_DIJET_*` constants.
+
+For `cr_dijet_mc`, `mcEventWeight` is scaled by the sample cross-section looked up by DSID from the PMG
+cross-section database. By default this is read from the central CVMFS copy; set `CALRATIO_PMG_XSEC_DB`
+to point at a different file. Note that this scaling normalises each delivered chunk independently and
+only over events passing the selection, so the weights are suitable for comparing shapes but not for
+absolute normalisation.
 
 As of this writing only `qcd` and `signal` are implemented.
 
