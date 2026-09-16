@@ -21,7 +21,7 @@ from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
 from func_adl_servicex_xaodr25.xAOD.vertex_v1 import Vertex_v1
 from func_adl_servicex_xaodr25.xAOD.vxtype import VxType
-from func_adl_servicex_xaodr25 import cpp_float, cpp_int
+from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
@@ -37,7 +37,6 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
-    TRUTH_JET_DR_CUT,
     EventLabels,
 )
 
@@ -86,9 +85,6 @@ class TopLevelEvent:
 
     # Truth particles
     bsm_particles: FADLStream[TruthParticle_v1]
-
-    # Hard-scatter truth jets (AntiKt4TruthJets, pT > 7 GeV); used for HS vs PU classification
-    truth_jets: FADLStream[Jet_v1]
 
 
 def good_training_jet(jet: Jet_v1) -> bool:
@@ -147,11 +143,6 @@ def build_preselection(data_type: DataType):
             bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
             .Where(lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51)
             .Where(lambda p: not particle_radiates(p)),
-            truth_jets=[
-                j
-                for j in e.Jets(collection="AntiKt4TruthJets", calibrate=False)
-                if j.pt() > 7000.0
-            ],  # type: ignore
         )
     )
 
@@ -172,7 +163,13 @@ def build_preselection(data_type: DataType):
     return query_preselection
 
 
-_DEFAULT_PMG_PATH = "/data/agolub/PMGxsecDB_mc23.txt"
+# PMG cross-section database. Defaults to the central copy on CVMFS, which is available
+# on the grid and at most analysis facilities. Override with CALRATIO_PMG_XSEC_DB if you
+# need a local or newer copy.
+_DEFAULT_PMG_PATH = os.environ.get(
+    "CALRATIO_PMG_XSEC_DB",
+    "/cvmfs/atlas.cern.ch/repo/sw/database/GroupData/dev/PMGTools/PMGxsecDB_mc23.txt",
+)
 
 _pmg_cache: dict[str, dict[int, tuple[float, float, float]]] = {}
 
@@ -214,7 +211,8 @@ def get_cross_section(
     additional_kfactor: float | None = None,
     pmg_xsec_db: str = _DEFAULT_PMG_PATH,
 ) -> float:
-    """Return crossSection_pb * kFactor * genFiltEff [* additional_branching_ratio]."""
+    """Return crossSection_pb * kFactor * genFiltEff, optionally scaled further by
+    `additional_branching_ratio` and `additional_kfactor`."""
 
     db = _load_pmg_db(pmg_xsec_db)
     if dsid not in db:
@@ -224,7 +222,7 @@ def get_cross_section(
     if additional_branching_ratio is not None:
         result *= additional_branching_ratio
     if additional_kfactor is not None:
-        result += additional_kfactor
+        result *= additional_kfactor
     return result
 
 
@@ -244,7 +242,6 @@ def fetch_raw_training_data(
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
     is_bib = config.datatype == DataType.BIB
-    is_mc = not is_bib  # truth decorations are only available on MC jets
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -421,27 +418,6 @@ def fetch_raw_training_data(
                 if is_bib
                 else {}
             ),
-            # **(
-            #     {
-            #         # HadronConeExclTruthLabelID: ghost-association flavor label
-            #         #   5=b, 4=c, 15=tau, 0=light (u/d/s/g)
-            #         "jet_truthLabelID": [
-            #             j.getAttribute[cpp_int]("HadronConeExclTruthLabelID")
-            #             for j in e.jets
-            #         ],
-            #         # PartonTruthLabelID: parton-level label distinguishing gluon jets
-            #         #   1-3=light quark, 4=c, 5=b, 21=gluon, -1=undefined
-            #         "jet_partonTruthLabelID": [
-            #             j.getAttribute[cpp_int]("PartonTruthLabelID") for j in e.jets
-            #         ],
-            #         # AntiKt4TruthJets kinematics for dR matching in post-processing
-            #         "truth_jet_pt": [j.pt() / 1000.0 for j in e.truth_jets],
-            #         "truth_jet_eta": [j.eta() for j in e.truth_jets],
-            #         "truth_jet_phi": [j.phi() for j in e.truth_jets],
-            #     }
-            #     if is_mc
-            #     else {}
-            # ),
         }
     )
 
@@ -525,11 +501,6 @@ def convert_to_training_data(
         ),
         np.float32,
     )
-
-    # is_mc = datatype != DataType.BIB
-    # if is_mc:
-    #     jet_truth_label = data["jet_truthLabelID"]
-    #     jet_parton_truth_label = data["jet_partonTruthLabelID"]
 
     clusters = ak.values_astype(
         ak.zip(
@@ -629,9 +600,6 @@ def convert_to_training_data(
 
         jets = jets[jets_near_llps_mask]
         clusters = clusters[jets_near_llps_mask]
-        # if is_mc:
-        #     jet_truth_label = jet_truth_label[jets_near_llps_mask]
-        #     jet_parton_truth_label = jet_parton_truth_label[jets_near_llps_mask]
 
         # And for those jets, get a match LLP. Easiest is to re-run the matching.
         llp_jet_pairs = ak.cartesian(
@@ -685,56 +653,15 @@ def convert_to_training_data(
         tracks = tracks[cr_event_mask]
         msegs = msegs[cr_event_mask]
         msegs_p = msegs_p[cr_event_mask]
-        # if is_mc:
-        #     jet_truth_label = jet_truth_label[cr_event_mask]
-        #     jet_parton_truth_label = jet_parton_truth_label[cr_event_mask]
 
         # Keep only the 5 leading jets by pT; events with fewer than 5 are kept as-is.
         _order = ak.argsort(jets.pt, axis=1, ascending=False)[:, :5]
         jets = jets[_order]
         clusters = clusters[_order]
-        # if is_mc:
-        #     jet_truth_label = jet_truth_label[_order]
-        #     jet_parton_truth_label = jet_parton_truth_label[_order]
 
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
         return ak.Array([])  # type: ignore
-
-    # dR-match each reco jet to the nearest hard-scatter truth jet.
-    # AntiKt4TruthJets contains only hard-scatter truth jets, so a match → HS (vtx_index=0);
-    # no match within DR cut → pile-up or unresolved (vtx_index=-1).
-    # if is_mc:
-    #     truth_jets_mc = ak.values_astype(
-    #         ak.zip(
-    #             {
-    #                 "pt": data["truth_jet_pt"],
-    #                 "eta": data["truth_jet_eta"],
-    #                 "phi": data["truth_jet_phi"],
-    #             },
-    #             with_name="Momentum3D",
-    #         ),
-    #         np.float32,
-    #     )
-    #     tj_pairs = ak.cartesian(
-    #         {"jet": jets, "truth": truth_jets_mc}, axis=1, nested=True
-    #     )
-    #     dr_tj = tj_pairs.jet.deltaR(tj_pairs.truth)
-    #     best_dr_tj = ak.min(dr_tj, axis=-1, mask_identity=True)
-    #     has_truth_match = ak.fill_none(best_dr_tj < TRUTH_JET_DR_CUT, False)
-    #     best_tj_idx = ak.argmin(dr_tj, axis=-1, keepdims=True)
-    #     best_truth_pt = ak.firsts(tj_pairs.truth[best_tj_idx].pt, axis=-1)
-    #     jet_truth_jet_pt = ak.where(
-    #         has_truth_match,
-    #         ak.fill_none(best_truth_pt, np.float32(0.0)),
-    #         np.float32(0.0),
-    #     )
-    #     jet_truth_vtx_index = ak.where(has_truth_match, np.int32(0), np.int32(-1))
-
-    # H_T,Miss: magnitude of the vector sum of jet pT in each event.
-    _sum_px = ak.sum(jets.pt * np.cos(jets.phi), axis=1)
-    _sum_py = ak.sum(jets.pt * np.sin(jets.phi), axis=1)
-    event_ht_miss = np.sqrt(_sum_px**2 + _sum_py**2)
 
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
@@ -776,9 +703,7 @@ def convert_to_training_data(
             [1.0] * len(per_jet_training_data_dict["runNumber"])
         )
     if datatype == DataType.CR_MC:
-        per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
-            ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
-        )
+        # Scale the generator weight so CR MC can be compared against CR data.
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"] * mc_weight_scale, jets.pt)[0],
             axis=1,
@@ -788,49 +713,6 @@ def convert_to_training_data(
     per_jet_training_data_dict["pt"] = ak.flatten(jets.pt, axis=1)
     per_jet_training_data_dict["eta"] = ak.flatten(jets.eta, axis=1)
     per_jet_training_data_dict["phi"] = ak.flatten(jets.phi, axis=1)
-    # if is_mc:
-    #     per_jet_training_data_dict["jet_truthLabelID"] = ak.flatten(
-    #         ak.values_astype(jet_truth_label, np.int32), axis=1
-    #     )
-    #     per_jet_training_data_dict["jet_partonTruthLabelID"] = ak.flatten(
-    #         ak.values_astype(jet_parton_truth_label, np.int32), axis=1
-    #     )
-    #     per_jet_training_data_dict["jet_truth_jet_pt"] = ak.flatten(
-    #         ak.values_astype(jet_truth_jet_pt, np.float32), axis=1
-    #     )
-    #     per_jet_training_data_dict["jet_truth_vtx_index"] = ak.flatten(
-    #         ak.values_astype(jet_truth_vtx_index, np.int32), axis=1
-    #     )
-    #     if datatype == DataType.CR:
-    #         leading_tj_idx = ak.argmax(
-    #             truth_jets_mc.pt, axis=1, keepdims=True, mask_identity=True
-    #         )
-    #         _leading_tj = ak.firsts(truth_jets_mc[leading_tj_idx], axis=1)
-    #         _lt_pt = ak.fill_none(_leading_tj.pt, np.float32(0.0))
-    #         _lt_eta = ak.fill_none(_leading_tj.eta, np.float32(0.0))
-    #         _lt_phi = ak.fill_none(_leading_tj.phi, np.float32(0.0))
-    #         # Broadcast event-level leading truth jet to per-jet level,
-    #         # so the length matches the other flattened fields.
-    #         per_jet_training_data_dict["leading_truth_jet"] = ak.values_astype(
-    #             ak.zip(
-    #                 {
-    #                     "pt": ak.flatten(
-    #                         ak.broadcast_arrays(_lt_pt, jets.pt)[0], axis=1
-    #                     ),
-    #                     "eta": ak.flatten(
-    #                         ak.broadcast_arrays(_lt_eta, jets.pt)[0], axis=1
-    #                     ),
-    #                     "phi": ak.flatten(
-    #                         ak.broadcast_arrays(_lt_phi, jets.pt)[0], axis=1
-    #                     ),
-    #                 },
-    #                 with_name="Momentum3D",
-    #             ),
-    #             np.float32,
-    #         )
-    # per_jet_training_data_dict["ht_miss"] = ak.flatten(
-    #     ak.broadcast_arrays(event_ht_miss, jets.pt)[0], axis=1
-    # )
 
     # Tracks, clusters, and muon segments.
     per_jet_training_data_dict["tracks"] = ak.flatten(nearby_tracks, axis=1)
@@ -882,15 +764,6 @@ def convert_to_training_data(
         per_jet_training_data_dict["msegs"] = do_rotations(
             per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
-
-    # if not is_mc:
-    #     n = len(per_jet_training_data_dict["pt"])
-    #     per_jet_training_data_dict["jet_truthLabelID"] = ak.Array([-1] * n)
-    #     per_jet_training_data_dict["jet_partonTruthLabelID"] = ak.Array([-1] * n)
-    #     per_jet_training_data_dict["jet_truth_jet_pt"] = ak.Array(
-    #         np.zeros(n, dtype=np.float32)
-    # )
-    # per_jet_training_data_dict["jet_truth_vtx_index"] = ak.Array([-1] * n)
 
     if datatype in (DataType.BIB, DataType.QCD):
         n = len(per_jet_training_data_dict["pt"])
@@ -995,6 +868,13 @@ def fetch_training_data(ds_name, config: RunConfig):
     for ar in raw_data:
         mc_weight_scale = 1.0
         if config.datatype == DataType.CR_MC:
+            # KNOWN LIMITATION: this normalises each delivered chunk independently, and
+            # only over events that survived the trigger + preselection. That means the
+            # weights in each chunk sum to the cross-section, so an N-chunk sample sums
+            # to N * cross-section, and the generator-level selection efficiency is
+            # divided out twice. The resulting weights are therefore usable for shape
+            # comparisons but NOT for absolute normalisation. Fixing this properly needs
+            # the total sum of generated weights from the CutBookkeepers.
             weight_sum = float(ak.sum(ar["mcEventWeight"]))
             if weight_sum != 0.0:
                 mc_weight_scale = cross_section / weight_sum

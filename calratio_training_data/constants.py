@@ -9,9 +9,6 @@ JET_MSEG_DELTA_PHI = 0.2
 # The delta R between a LLP and a jet for the jet to be considered from the LLP
 LLP_JET_DELTA_R = 0.4
 
-# dR cut for matching a reco jet to a hard-scatter truth jet (AntiKt4TruthJets)
-TRUTH_JET_DR_CUT = 0.3
-
 # Info specifying what range LLPs are valid for training in.
 # These are *detector* coordinates, not relative to the PV's location.
 
