@@ -115,6 +115,28 @@ def test_do_rotations_tracks():
     )  # rounded for comparison
 
 
+def test_do_rotations_tracks_empty_input():
+    track_array = ak.zip(
+        {
+            "eta": ak.Array([[], []]),
+            "phi": ak.Array([[], []]),
+            "pt": ak.Array([[], []]),
+        },
+        with_name="Momentum3D",
+    )
+    jet_array = ak.Array(
+        [
+            {"pt": 12000.0, "eta": 0.5, "phi": 1.2},
+            {"pt": 45000, "eta": -1.1, "phi": 2.8},
+        ],
+        with_name="Momentum3D",
+    )
+
+    rotated_tracks = do_rotations(track_array, "track", jet_array)
+
+    assert rotated_tracks.to_list() == [[], []]
+
+
 def test_do_rotations_msegs():
     mseg_array = ak.Array(
         [

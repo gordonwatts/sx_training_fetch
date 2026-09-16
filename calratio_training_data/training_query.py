@@ -14,8 +14,10 @@ from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.calosampling import CaloSampling
 from func_adl_servicex_xaodr25.xaod import xAOD
 from func_adl_servicex_xaodr25.xAOD.calocluster_v1 import CaloCluster_v1
+from func_adl_servicex_xaodr25.xAOD.electron_v1 import Electron_v1
 from func_adl_servicex_xaodr25.xAOD.eventinfo_v1 import EventInfo_v1
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
+from func_adl_servicex_xaodr25.xAOD.muon_v1 import Muon_v1
 from func_adl_servicex_xaodr25.xAOD.muonsegment_v1 import MuonSegment_v1
 from func_adl_servicex_xaodr25.xAOD.trackparticle_v1 import TrackParticle_v1
 from func_adl_servicex_xaodr25.xAOD.truthparticle_v1 import TruthParticle_v1
@@ -25,7 +27,11 @@ from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
-from calratio_training_data.triggers import trigger_bib_filter, trigger_cr_filter
+from calratio_training_data.triggers import (
+    trigger_bib_filter,
+    trigger_cr_dijet_filter,
+    trigger_cr_ttbar_filter,
+)
 
 
 from calratio_training_data.constants import (
@@ -37,7 +43,14 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
+    CR_DIJET_ASYMMETRY_MAX,
+    CR_DIJET_DELTA_PHI_MIN,
+    CR_DIJET_HT_MISS_MAX,
+    CR_DIJET_LEAD_PT_MIN,
+    CR_DIJET_MAX_JETS,
+    CR_DIJET_SUBLEAD_PT_MIN,
     EventLabels,
+    CREventLabels,
 )
 
 from .cpp_xaod_utils import (
@@ -87,6 +100,12 @@ class TopLevelEvent:
     bsm_particles: FADLStream[TruthParticle_v1]
 
 
+@dataclass
+class CRTopLevelEvent(TopLevelEvent):
+    electrons: FADLStream[Electron_v1]
+    muons: FADLStream[Muon_v1]
+
+
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
     return (
@@ -106,48 +125,99 @@ def build_preselection(data_type: DataType):
     if data_type == DataType.BIB:
         query_base = trigger_bib_filter(query_base)
 
-    if data_type == DataType.CR_MC or data_type == DataType.CR_DATA:
-        query_base = trigger_cr_filter(query_base)
+    # The ttbar control region needs electrons/muons, so it uses its own top level
+    # event shape. The dijet control region only needs jets, so it rides along on the
+    # standard one.
+    is_cr = data_type in (DataType.CR_TTBAR, DataType.CR_DATA)
+    if is_cr:
+        query_base = trigger_cr_ttbar_filter(query_base)
+
+    is_cr_dijet = data_type in (DataType.CR_DIJET_MC, DataType.CR_DIJET_DATA)
+    if is_cr_dijet:
+        query_base = trigger_cr_dijet_filter(query_base)
 
     # Do top level object filtering
-    query_base_objects = query_base.Select(
-        lambda e: TopLevelEvent(
-            event_info=e.EventInfo("EventInfo"),
-            vertices=e.Vertices("PrimaryVertices").Where(
-                lambda v: v.vertexType() == VxType.VertexType.PriVtx
-            ),
-            pv_tracks=(
-                e.Vertices("PrimaryVertices")
-                .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
-                .First()
-                .trackParticleLinks()
-                .Where(lambda t: t.isValid())  # type: ignore
-            ),
-            muon_segments=e.MuonSegments("MuonSegments"),
-            jets=[
-                j
-                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if good_training_jet(j)
-            ],  # type: ignore
-            jet_clusters=[
-                [
-                    cvt_to_raw_calocluster(cl)
-                    for cl in j.constituentLinks()
-                    if cl.isValid()
-                ]
-                for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
-                if good_training_jet(j)
-            ],  # type: ignore
-            all_tracks=e.TrackParticles("InDetTrackParticles"),
-            topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
-            bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
-            .Where(lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51)
-            .Where(lambda p: not particle_radiates(p)),
+    if is_cr:
+        query_base_objects = query_base.Select(
+            lambda e: CRTopLevelEvent(
+                event_info=e.EventInfo("EventInfo"),
+                vertices=e.Vertices("PrimaryVertices").Where(
+                    lambda v: v.vertexType() == VxType.VertexType.PriVtx
+                ),
+                pv_tracks=(
+                    e.Vertices("PrimaryVertices")
+                    .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
+                    .First()
+                    .trackParticleLinks()
+                    .Where(lambda t: t.isValid())  # type: ignore
+                ),
+                muon_segments=e.MuonSegments("MuonSegments"),
+                jets=[
+                    j
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                jet_clusters=[
+                    [
+                        cvt_to_raw_calocluster(cl)
+                        for cl in j.constituentLinks()
+                        if cl.isValid()
+                    ]
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                all_tracks=e.TrackParticles("InDetTrackParticles"),
+                topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
+                bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
+                .Where(
+                    lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
+                )
+                .Where(lambda p: not particle_radiates(p)),
+                electrons=e.Electrons("Electrons", calibrate=False),
+                muons=e.Muons("Muons", calibrate=False),
+            )
         )
-    )
+    else:
+        query_base_objects = query_base.Select(
+            lambda e: TopLevelEvent(
+                event_info=e.EventInfo("EventInfo"),
+                vertices=e.Vertices("PrimaryVertices").Where(
+                    lambda v: v.vertexType() == VxType.VertexType.PriVtx
+                ),
+                pv_tracks=(
+                    e.Vertices("PrimaryVertices")
+                    .Where(lambda v: v.vertexType() == VxType.VertexType.PriVtx)
+                    .First()
+                    .trackParticleLinks()
+                    .Where(lambda t: t.isValid())  # type: ignore
+                ),
+                muon_segments=e.MuonSegments("MuonSegments"),
+                jets=[
+                    j
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                jet_clusters=[
+                    [
+                        cvt_to_raw_calocluster(cl)
+                        for cl in j.constituentLinks()
+                        if cl.isValid()
+                    ]
+                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    if good_training_jet(j)
+                ],  # type: ignore
+                all_tracks=e.TrackParticles("InDetTrackParticles"),
+                topo_clusters=e.CaloClusters("CaloCalTopoClusters"),
+                bsm_particles=e.TruthParticles("TruthBSMWithDecayParticles")
+                .Where(
+                    lambda truth_p: truth_p.absPdgId() == 35 or truth_p.absPdgId() == 51
+                )
+                .Where(lambda p: not particle_radiates(p)),
+            )
+        )
 
-    # Preselection: CR requires at least 2 jets for dijet topology cuts
-    if data_type == DataType.CR_MC or data_type == DataType.CR_DATA:
+    # Preselection: the dijet CR needs at least 2 jets for its topology cuts.
+    if is_cr_dijet:
         query_preselection = query_base_objects.Where(
             lambda e: len(e.vertices) > 0  # type: ignore
             and e.vertices.First().nTrackParticles() > 0
@@ -242,6 +312,8 @@ def fetch_raw_training_data(
     # Dictionary requires a constant test
     is_signal = config.datatype == DataType.SIGNAL
     is_bib = config.datatype == DataType.BIB
+    is_cr = config.datatype in (DataType.CR_TTBAR, DataType.CR_DATA)
+    is_ttbbar = config.datatype == DataType.TTBAR
 
     # Query the run number, etc.
     query = query_preselection.Select(
@@ -418,6 +490,22 @@ def fetch_raw_training_data(
                 if is_bib
                 else {}
             ),
+            **(
+                {
+                    "electron_charge": [el.charge() for el in e.electrons],
+                    "muon_charge": [mu.charge() for mu in e.muons],
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
+                }
+                if is_cr
+                else {}
+            ),
+            **(
+                {
+                    "jet_emf": [j.getAttribute[cpp_float]("EMFrac") for j in e.jets],
+                }
+                if is_ttbbar
+                else {}
+            ),
         }
     )
 
@@ -427,6 +515,7 @@ def fetch_raw_training_data(
 def convert_to_training_data(
     data: Dict[str, ak.Array],
     datatype: DataType,
+    ds_name: str,
     rotation: bool = True,
     mc_weight_scale: float = 1.0,
 ) -> ak.Array:
@@ -437,6 +526,10 @@ def convert_to_training_data(
         raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
         datatype (DataType): Type of data we are using, given by required command
                         line input.
+        ds_name (str): Name of the dataset being processed.
+        rotation (bool): Apply eta/phi rotations to the per-jet constituents.
+        mc_weight_scale (float): Extra factor applied to `mcEventWeight`. Used by the
+                        dijet control region to scale MC to the sample cross-section.
 
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
@@ -522,6 +615,8 @@ def convert_to_training_data(
         ),
         np.float32,
     )
+
+    event_mask = slice(None)
 
     # Check to see if we have any jets that are missing clusters:
     # no_cluster_mask = len(clusters.pt) == 0
@@ -616,48 +711,84 @@ def convert_to_training_data(
         llp_match_jet = llps[llp_match_jet_index]
 
     # CR-specific event-level selection applied before per-jet expansion.
-    # Events must pass all five dijet topology cuts, then continue through
-    # the standard per-jet processing below.
-    if datatype == DataType.CR_MC or datatype == DataType.CR_DATA:
+    # Event selection for control region with ttbar dataset
+    if datatype in (DataType.CR_TTBAR, DataType.CR_DATA):
+        electron_charge = ak.values_astype(data["electron_charge"], np.int8)
+        muon_charge = ak.values_astype(data["muon_charge"], np.int8)
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+
+        has_pos_e = ak.any(electron_charge > 0, axis=1)
+        has_neg_e = ak.any(electron_charge < 0, axis=1)
+        has_pos_mu = ak.any(muon_charge > 0, axis=1)
+        has_neg_mu = ak.any(muon_charge < 0, axis=1)
+
+        # opposite-sign  e-mu
+        os_emu_mask = (has_pos_e & has_neg_mu) | (has_neg_e & has_pos_mu)
+        if not ak.any(os_emu_mask):
+            return ak.Array([])
+
+        event_mask = os_emu_mask
+        jets = jets[event_mask]
+        tracks = tracks[event_mask]
+        clusters = clusters[event_mask]
+        msegs = msegs[event_mask]
+        msegs_p = msegs_p[event_mask]
+
+        # EMF selection is per jet, so apply it only after the event-level e-mu
+        # selection has been applied to all event-shaped arrays.
+        emf_mask = jet_emf[event_mask] > 0.97
+        jets = jets[emf_mask]
+        clusters = clusters[emf_mask]
+
+    # Signal-region TTBAR (hadronic) selection: keep only jets with EMF < 0.97.
+    # This is the per-jet complement of the CR's > 0.97 cut, applied on the default
+    # (signal-region) path with no event-level pre-mask.
+    if datatype == DataType.TTBAR:
+        jet_emf = ak.values_astype(data["jet_emf"], np.float32)
+        emf_mask = jet_emf[event_mask] < 0.97
+        jets = jets[emf_mask]
+        clusters = clusters[emf_mask]
+
+    # Dijet control region: a back-to-back, balanced dijet system with little missing
+    # energy. Events must pass all five topology cuts, then continue through the
+    # standard per-jet processing below.
+    if datatype in (DataType.CR_DIJET_MC, DataType.CR_DIJET_DATA):
         # Sort jets by pT descending so index 0 is leading, 1 is subleading.
-        # The preselection guarantees >= 2 jets per event for CR.
+        # build_preselection guarantees >= 2 jets per event for the dijet CR.
         pt_order = ak.argsort(jets.pt, axis=1, ascending=False)
         jets_sorted = jets[pt_order]
 
-        lead_pt = jets_sorted[:, 0].pt
-        sublead_pt = jets_sorted[:, 1].pt
+        lead = jets_sorted[:, 0]
+        sublead = jets_sorted[:, 1]
 
-        # Leading jet pT > 400 GeV, subleading jet pT > 60 GeV
-        lead_pt_ok = lead_pt > 400.0
-        sublead_pt_ok = sublead_pt > 60.0
+        lead_pt_ok = lead.pt > CR_DIJET_LEAD_PT_MIN
+        sublead_pt_ok = sublead.pt > CR_DIJET_SUBLEAD_PT_MIN
 
-        # |Delta phi(leading, subleading)| > 3 radians (back-to-back topology)
-        dphi = jets_sorted[:, 0].phi - jets_sorted[:, 1].phi
-        dphi = ak.where(dphi > np.pi, dphi - 2 * np.pi, dphi)
-        dphi = ak.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
-        dphi_ok = np.abs(dphi) > 3.0
+        # Back-to-back in the transverse plane.
+        dphi_ok = np.abs(lead.deltaphi(sublead)) > CR_DIJET_DELTA_PHI_MIN
 
-        # Dijet pT asymmetry (pT_lead - pT_sublead) / (pT_lead + pT_sublead) < 0.3
-        asym_ok = (lead_pt - sublead_pt) / (lead_pt + sublead_pt) < 0.3
+        # Balanced: reject events where a third jet has carried off momentum.
+        asym_ok = (lead.pt - sublead.pt) / (
+            lead.pt + sublead.pt
+        ) < CR_DIJET_ASYMMETRY_MAX
 
-        # H_T,Miss < 120 GeV (vector sum magnitude of all selected jet pT)
+        # Little missing energy, from the vector sum of the selected jet pT.
         sum_px = ak.sum(jets.pt * np.cos(jets.phi), axis=1)
         sum_py = ak.sum(jets.pt * np.sin(jets.phi), axis=1)
-        ht_miss_ok = np.sqrt(sum_px**2 + sum_py**2) < 120.0
+        ht_miss_ok = np.sqrt(sum_px**2 + sum_py**2) < CR_DIJET_HT_MISS_MAX
 
-        cr_event_mask = lead_pt_ok & sublead_pt_ok & dphi_ok & asym_ok & ht_miss_ok
+        event_mask = lead_pt_ok & sublead_pt_ok & dphi_ok & asym_ok & ht_miss_ok
 
-        data = data[cr_event_mask]
-        jets = jets[cr_event_mask]
-        clusters = clusters[cr_event_mask]
-        tracks = tracks[cr_event_mask]
-        msegs = msegs[cr_event_mask]
-        msegs_p = msegs_p[cr_event_mask]
+        jets = jets[event_mask]
+        clusters = clusters[event_mask]
+        tracks = tracks[event_mask]
+        msegs = msegs[event_mask]
+        msegs_p = msegs_p[event_mask]
 
-        # Keep only the 5 leading jets by pT; events with fewer than 5 are kept as-is.
-        _order = ak.argsort(jets.pt, axis=1, ascending=False)[:, :5]
-        jets = jets[_order]
-        clusters = clusters[_order]
+        # Keep only the leading jets by pT; events with fewer are kept as-is.
+        jet_order = ak.argsort(jets.pt, axis=1, ascending=False)[:, :CR_DIJET_MAX_JETS]
+        jets = jets[jet_order]
+        clusters = clusters[jet_order]
 
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
@@ -666,7 +797,8 @@ def convert_to_training_data(
     # Compute DeltaR between each jet and all tracks in the same event
     jet_track_pairs = ak.cartesian({"jet": jets, "track": tracks}, axis=1, nested=True)
     delta_r = jet_track_pairs.jet.deltaR(jet_track_pairs.track)
-    nearby_tracks = jet_track_pairs.track[delta_r < JET_TRACK_DELTA_R]
+    track_mask = delta_r < JET_TRACK_DELTA_R
+    nearby_tracks = jet_track_pairs.track[track_mask]
 
     # delta-phi matching for muon segments.
     jet_mseg_pairs = ak.cartesian(
@@ -678,7 +810,7 @@ def convert_to_training_data(
         nested=True,
     )
     delta_phi = jet_mseg_pairs.jet.deltaphi(jet_mseg_pairs.mseg.x)
-    mseg_mask = delta_phi < JET_MSEG_DELTA_PHI
+    mseg_mask = abs(delta_phi) < JET_MSEG_DELTA_PHI
     nearby_msegs = jet_mseg_pairs.mseg[mseg_mask]
 
     # Fill this dict with the leaves we want in the training data.
@@ -687,25 +819,27 @@ def convert_to_training_data(
     # Build the final per-jet training data. This requires reshaping and broadcasting
     # a number of arrays we have.
     per_jet_training_data_dict["runNumber"] = ak.flatten(
-        ak.broadcast_arrays(data["runNumber"], jets.pt)[0], axis=1
+        ak.broadcast_arrays(data["runNumber"][event_mask], jets.pt)[0], axis=1
     )
     per_jet_training_data_dict["eventNumber"] = ak.flatten(
-        ak.broadcast_arrays(data["eventNumber"], jets.pt)[0], axis=1
+        ak.broadcast_arrays(data["eventNumber"][event_mask], jets.pt)[0], axis=1
     )
-    if datatype == DataType.SIGNAL or datatype == DataType.QCD:
+    if datatype in (DataType.SIGNAL, DataType.QCD, DataType.TTBAR, DataType.CR_TTBAR):
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
-            ak.broadcast_arrays(data["mcEventWeight"], jets.pt)[0], axis=1
+            ak.broadcast_arrays(data["mcEventWeight"][event_mask], jets.pt)[0], axis=1
         )
-    if datatype in (DataType.BIB, DataType.CR_DATA):
-        # Giving BIB data or CR data mcEventWeight of 1
+    if datatype in (DataType.BIB, DataType.CR_DATA, DataType.CR_DIJET_DATA):
+        # Giving BIB data and control region data mcEventWeight of 1
         # Follows convention from CalRatioTrainer
         per_jet_training_data_dict["mcEventWeight"] = ak.Array(
             [1.0] * len(per_jet_training_data_dict["runNumber"])
         )
-    if datatype == DataType.CR_MC:
-        # Scale the generator weight so CR MC can be compared against CR data.
+    if datatype == DataType.CR_DIJET_MC:
+        # Scale the generator weight so dijet CR MC can be compared against CR data.
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
-            ak.broadcast_arrays(data["mcEventWeight"] * mc_weight_scale, jets.pt)[0],
+            ak.broadcast_arrays(
+                data["mcEventWeight"][event_mask] * mc_weight_scale, jets.pt
+            )[0],
             axis=1,
         )
 
@@ -765,7 +899,7 @@ def convert_to_training_data(
             per_jet_training_data_dict["msegs"], "mseg", flat_filtered_jets
         )
 
-    if datatype in (DataType.BIB, DataType.QCD):
+    if datatype in (DataType.BIB, DataType.QCD, DataType.TTBAR):
         n = len(per_jet_training_data_dict["pt"])
 
         # Define a single dummy record
@@ -795,8 +929,11 @@ def convert_to_training_data(
         DataType.SIGNAL: EventLabels.signal.value,
         DataType.BIB: EventLabels.BIB.value,
         DataType.QCD: EventLabels.QCD.value,
-        DataType.CR_MC: EventLabels.CR_MC.value,
-        DataType.CR_DATA: EventLabels.CR_DATA.value,
+        DataType.TTBAR: EventLabels.ttbar.value,
+        DataType.CR_TTBAR: CREventLabels.MC.value,
+        DataType.CR_DATA: CREventLabels.data.value,
+        DataType.CR_DIJET_MC: CREventLabels.MC.value,
+        DataType.CR_DIJET_DATA: CREventLabels.data.value,
     }
     label_value = label_map[datatype]
 
@@ -860,14 +997,14 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
 
 def fetch_training_data(ds_name, config: RunConfig):
-    if config.datatype == DataType.CR_MC:
+    if config.datatype == DataType.CR_DIJET_MC:
         dsid = _extract_dsid(ds_name)
         cross_section = get_cross_section(dsid)
 
     raw_data = fetch_raw_training_data(ds_name, config)
     for ar in raw_data:
         mc_weight_scale = 1.0
-        if config.datatype == DataType.CR_MC:
+        if config.datatype == DataType.CR_DIJET_MC:
             # KNOWN LIMITATION: this normalises each delivered chunk independently, and
             # only over events that survived the trigger + preselection. That means the
             # weights in each chunk sum to the cross-section, so an N-chunk sample sums
@@ -881,6 +1018,7 @@ def fetch_training_data(ds_name, config: RunConfig):
         yield convert_to_training_data(
             ar,
             datatype=config.datatype,
+            ds_name=ds_name,
             rotation=config.rotation,
             mc_weight_scale=mc_weight_scale,
         )

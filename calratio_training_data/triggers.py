@@ -2,7 +2,11 @@ from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import tdt_chain_fired, tmt_match_object
 from func_adl_servicex_xaodr25.event_collection import Event
 
-from calratio_training_data.constants import BIB_TRIGGERS, CR_TRIGGER
+from calratio_training_data.constants import (
+    BIB_TRIGGERS,
+    CR_DIJET_TRIGGER,
+    CR_TTBAR_TRIGGER,
+)
 from func_adl_servicex_xaodr25.xAOD.jet_v1 import Jet_v1
 
 
@@ -36,18 +40,44 @@ def trigger_bib_filter(
     return query
 
 
-def trigger_cr_filter(
+def trigger_cr_ttbar_filter(
     query: ObjectStream[Event],
 ) -> ObjectStream[Event]:
-    """Filter events where the CR trigger has fired.
+    """Filter events where the CR ttbar e-mu trigger has fired.
 
     Args:
         query (ObjectStream[Event]): The event-level query
 
     Returns:
-        ObjectStream[Event]: The event-level query filtered to CR trigger events.
+        ObjectStream[Event]: The event-level query filtered to CR ttbar trigger events.
     """
-    query = query.Where(lambda _: any(tdt_chain_fired(trig) for trig in CR_TRIGGER))
+    triggers = [trig for pair in CR_TTBAR_TRIGGER for trig in pair]
+    if len(triggers) == 1:
+        trig = triggers[0]
+        query = query.Where(lambda _: tdt_chain_fired(trig))
+    else:
+        query = query.Where(lambda _: any(tdt_chain_fired(trig) for trig in triggers))
+    return query
+
+
+def trigger_cr_dijet_filter(
+    query: ObjectStream[Event],
+) -> ObjectStream[Event]:
+    """Filter events where the dijet control region single-jet trigger has fired.
+
+    Args:
+        query (ObjectStream[Event]): The event-level query
+
+    Returns:
+        ObjectStream[Event]: The event-level query filtered to dijet CR trigger events.
+    """
+    if len(CR_DIJET_TRIGGER) == 1:
+        trig = CR_DIJET_TRIGGER[0]
+        query = query.Where(lambda _: tdt_chain_fired(trig))
+    else:
+        query = query.Where(
+            lambda _: any(tdt_chain_fired(trig) for trig in CR_DIJET_TRIGGER)
+        )
     return query
 
 

@@ -12,7 +12,7 @@ dependencies = [
     "vector",
     "pyarrow",
     "uproot",
-    "ServiceX-Local",
+    "servicex-local==1.0.0b11",
     "func_adl_servicex_xaodr25",
     "servicex-analysis-utils",
     "jinja2",
