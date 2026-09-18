@@ -93,6 +93,12 @@ def fetch_command(
         "-n",
         help="Number of files to process in the dataset. Default is to process all files.",
     ),
+    sum_of_weights: Optional[str] = typer.Option(
+        None,
+        "--sum-of-weights",
+        help="YAML file mapping DSID to the sample's sum of generated weights. "
+        "Required for cr_dijet_mc.",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -111,6 +117,7 @@ def fetch_command(
         sx_backend=sx_backend,
         n_files=n_files,
         datatype=data_type,
+        sum_of_weights_db=sum_of_weights or "",
     )
     fetch_training_data_to_file(dataset, run_config)
 

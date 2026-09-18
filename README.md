@@ -53,8 +53,11 @@ This command fetches the data from a sample and formats it as regular training i
 │                                               [default: rotation]                                                          │
 │ --sx-backend                         TEXT     ServiceX backend Name. Default is to use what is in your `servicex.yaml`     │
 │                                               file.                                                                        │
-│ --n-files       -n                   INTEGER  Number of files to process in the dataset. Default is to process all files.  │
-│ --help                                        Show this message and exit.                                                  │
+│ --n-files         -n                   INTEGER  Number of files to process in the dataset. Default is to process all       │
+│                                                 files.                                                                     │
+│ --sum-of-weights                       TEXT     YAML file mapping DSID to the sample's sum of generated weights. Required  │
+│                                                 for cr_dijet_mc.                                                           │
+│ --help                                          Show this message and exit.                                                │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -90,16 +93,20 @@ The dataset type:
 | Dijet pT asymmetry | < 0.3 |
 | H_T,Miss | < 120 GeV |
 
-Only the 5 leading jets per surviving event are written out. The cut values live in `constants.py` as
-the `CR_DIJET_*` constants.
+Only the 5 leading jets per surviving event are written out. The cut values live in `constants.py` as the `CR_DIJET_*` constants.
 
-For `cr_dijet_mc`, `mcEventWeight` is scaled by the sample cross-section looked up by DSID from the PMG
-cross-section database. By default this is read from the central CVMFS copy; set `CALRATIO_PMG_XSEC_DB`
-to point at a different file. Note that this scaling normalises each delivered chunk independently and
-only over events passing the selection, so the weights are suitable for comparing shapes but not for
-absolute normalisation.
+##### MC weighting
 
-As of this writing only `qcd` and `signal` are implemented.
+For `cr_dijet_mc`, `mcEventWeight` is scaled by
+
+```text
+cross-section x kFactor x genFiltEff / sum of generated weights
+```
+
+The cross-section, k-factor and filter efficiency are looked up by DSID from the PMG cross-section database, read from the central CVMFS copy by default (`CALRATIO_PMG_XSEC_DB` overrides it).
+
+The sum of generated weights must be supplied separately, in a small YAML file keyed by DSID. For the dijet JZ2, JZ3, JZ4 samples this YAML file already exists as `sum_of_weights.yaml`. This flag is required when making dijet CR datasets. If the DSID is missing from the file then the run fails instead of producing an unnormalized dataset.
+
 
 ### Where can the data be located?
 

@@ -9,6 +9,7 @@ import uproot
 import numpy as np
 import servicex_local as sx_local
 import vector
+import yaml
 from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.calosampling import CaloSampling
@@ -76,6 +77,8 @@ class RunConfig:
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
     datatype: DataType = DataType.SIGNAL
+    # Required for CR_DIJET_MC; empty raises rather than silently skipping the scaling.
+    sum_of_weights_db: str = ""
 
 
 @dataclass
@@ -294,6 +297,57 @@ def get_cross_section(
     if additional_kfactor is not None:
         result *= additional_kfactor
     return result
+
+
+# Sum of generated weights per DSID.
+# Supply the numbers in a small YAML file using --sum-of-weights flag
+# instead, keyed by DSID. There is deliberately no default: samples stitched
+# together must all be normalised from the same file.
+
+_sum_of_weights_cache: dict[str, dict[int, float]] = {}
+
+
+def _load_sum_of_weights_db(sum_of_weights_db: str) -> dict[int, float]:
+    """Parse the sum-of-weights YAML once and cache by path."""
+
+    if sum_of_weights_db not in _sum_of_weights_cache:
+        with open(os.path.expanduser(sum_of_weights_db)) as f:
+            raw = yaml.safe_load(f) or {}
+        _sum_of_weights_cache[sum_of_weights_db] = {
+            int(dsid): float(total) for dsid, total in raw.items()
+        }
+    return _sum_of_weights_cache[sum_of_weights_db]
+
+
+def get_sum_of_weights(dsid: int, sum_of_weights_db: str = "") -> float:
+    """Return the sum of generated weights for `dsid`.
+
+    This is the sum over *all* generated events, taken from the sample's
+    CutBookkeepers - not the sum over events that survive any selection. Dividing by
+    it is what lets several samples (e.g. JZ slices) be stacked together: each slice's
+    selection efficiency is then implicit in how many of its events survive.
+
+    Raises:
+        ValueError: if no database was configured, or `dsid` is not in it. Failing
+            here is deliberate - silently unscaled weights would quietly corrupt any
+            multi-sample stack.
+    """
+
+    if not sum_of_weights_db:
+        raise ValueError(
+            f"No sum-of-weights database given, so DSID {dsid} cannot be normalised. "
+            "Pass --sum-of-weights <file.yaml>."
+        )
+
+    db_path = sum_of_weights_db
+    db = _load_sum_of_weights_db(db_path)
+    if dsid not in db:
+        raise ValueError(f"DSID {dsid} not found in {db_path}")
+
+    total = db[dsid]
+    if total == 0.0:
+        raise ValueError(f"DSID {dsid} has a sum of weights of 0 in {db_path}")
+    return total
 
 
 def fetch_raw_training_data(
@@ -997,24 +1051,24 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
 
 def fetch_training_data(ds_name, config: RunConfig):
+    # For CR_DIJET_MC files:
+    # Scale MC by cross-section / sum of generated weights. Multiplying by a
+    # single constant to avoid errors with sx splitting the output into files.
+    # Allows us to combine samples together directly - necessary for combining multiple JZ
+    # sample.
+
+    mc_weight_scale = 1.0
     if config.datatype == DataType.CR_DIJET_MC:
         dsid = _extract_dsid(ds_name)
-        cross_section = get_cross_section(dsid)
+        mc_weight_scale = get_cross_section(dsid) / get_sum_of_weights(
+            dsid, config.sum_of_weights_db
+        )
+        logging.info(
+            f"DSID {dsid}: scaling mcEventWeight by {mc_weight_scale:.6g} "
+            "(cross-section / sum of generated weights)."
+        )
 
-    raw_data = fetch_raw_training_data(ds_name, config)
-    for ar in raw_data:
-        mc_weight_scale = 1.0
-        if config.datatype == DataType.CR_DIJET_MC:
-            # KNOWN LIMITATION: this normalises each delivered chunk independently, and
-            # only over events that survived the trigger + preselection. That means the
-            # weights in each chunk sum to the cross-section, so an N-chunk sample sums
-            # to N * cross-section, and the generator-level selection efficiency is
-            # divided out twice. The resulting weights are therefore usable for shape
-            # comparisons but NOT for absolute normalisation. Fixing this properly needs
-            # the total sum of generated weights from the CutBookkeepers.
-            weight_sum = float(ak.sum(ar["mcEventWeight"]))
-            if weight_sum != 0.0:
-                mc_weight_scale = cross_section / weight_sum
+    for ar in fetch_raw_training_data(ds_name, config):
         yield convert_to_training_data(
             ar,
             datatype=config.datatype,

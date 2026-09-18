@@ -7,6 +7,7 @@ from calratio_training_data.training_query import (
     _extract_dsid,
     convert_to_training_data,
     get_cross_section,
+    get_sum_of_weights,
 )
 from calratio_training_data.fetch import DataType
 from calratio_training_data.constants import CR_DIJET_MAX_JETS, CREventLabels
@@ -1334,3 +1335,89 @@ def test_get_cross_section_unknown_dsid_raises(tmp_path):
 
     with pytest.raises(ValueError, match="999999"):
         get_cross_section(999999, pmg_xsec_db=db)
+
+
+def _write_sum_of_weights_db(tmp_path, entries):
+    """Write a DSID -> sum-of-generated-weights YAML."""
+    db_file = tmp_path / "sum_of_weights.yaml"
+    db_file.write_text("\n".join(f"{k}: {v}" for k, v in entries.items()) + "\n")
+    return str(db_file)
+
+
+def test_get_sum_of_weights_reads_dsid(tmp_path):
+    """Values come back keyed by DSID."""
+    db = _write_sum_of_weights_db(tmp_path, {601701: 1.5e9, 601702: 8.0e8})
+
+    assert get_sum_of_weights(601701, db) == 1.5e9
+    assert get_sum_of_weights(601702, db) == 8.0e8
+
+
+def test_get_sum_of_weights_unknown_dsid_raises(tmp_path):
+    """A missing DSID must fail loudly rather than silently skip normalisation."""
+    db = _write_sum_of_weights_db(tmp_path, {601701: 1.5e9})
+
+    with pytest.raises(ValueError, match="999999"):
+        get_sum_of_weights(999999, db)
+
+
+def test_get_sum_of_weights_unconfigured_raises():
+    """With no database given, fail with an actionable message.
+
+    There is no default or environment fallback on purpose: samples stitched together
+    must all be normalised from the same file.
+    """
+    with pytest.raises(ValueError, match="--sum-of-weights"):
+        get_sum_of_weights(601701, "")
+
+
+def test_get_sum_of_weights_zero_raises(tmp_path):
+    """A zero total would produce an infinite scale factor."""
+    db = _write_sum_of_weights_db(tmp_path, {601701: 0.0})
+
+    with pytest.raises(ValueError, match="sum of weights of 0"):
+        get_sum_of_weights(601701, db)
+
+
+def test_jz_slices_stitch_with_correct_relative_normalisation(tmp_path):
+    """Two slices with different efficiencies must stack in the right proportion.
+
+    This is the property the per-chunk scheme got wrong. Slice A is 10x the
+    cross-section of slice B but only 1/10 as likely to survive the selection, so
+    the two should contribute equal total weight once stacked.
+    """
+    pmg_header = (
+        "dataset_number/I:physics_short/C:crossSection_pb/D:genFiltEff/D:"
+        "kFactor/D:relUncertUP/D:relUncertDOWN/D:generator_name/C:etag/C"
+    )
+    pmg = tmp_path / "pmg.txt"
+    pmg.write_text(
+        "\n".join(
+            [
+                pmg_header,
+                "601701\tA\t100.0\t1.0\t1.0\t0.1\t0.1\tPy8\te1",
+                "601702\tB\t10.0\t1.0\t1.0\t0.1\t0.1\tPy8\te1",
+            ]
+        )
+        + "\n"
+    )
+    # Equal generated statistics, but A keeps 1 event per 1000 generated weight
+    # units and B keeps 10 -- a 10x efficiency difference the other way.
+    sums = _write_sum_of_weights_db(tmp_path, {601701: 1000.0, 601702: 1000.0})
+
+    scale_a = get_cross_section(601701, pmg_xsec_db=str(pmg)) / get_sum_of_weights(
+        601701, sums
+    )
+    scale_b = get_cross_section(601702, pmg_xsec_db=str(pmg)) / get_sum_of_weights(
+        601702, sums
+    )
+
+    # One surviving event in A, ten in B, all with unit generator weight.
+    total_a = 1 * 1.0 * scale_a
+    total_b = 10 * 1.0 * scale_b
+
+    assert abs(total_a - total_b) < 1e-9
+
+    # And the scale is a per-sample constant, independent of how many events
+    # happened to survive -- which is what makes the slices stackable.
+    assert abs(scale_a - 0.1) < 1e-12
+    assert abs(scale_b - 0.01) < 1e-12
