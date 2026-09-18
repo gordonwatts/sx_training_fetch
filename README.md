@@ -30,14 +30,18 @@ This command fetches the data from a sample and formats it as regular training i
 ```text
 > calratio_training_data fetch --help
                                                                                                                               
- Usage: calratio_training_data fetch [OPTIONS] DATA_TYPE:{signal|qcd|data|bib}                                                
-                                     DATASET                                                                                  
+ Usage: calratio_training_data fetch [OPTIONS] DATA_TYPE:{signal|qcd|data|bib|t                                               
+                                     tbar|cr_ttbar|cr_dijet_mc|cr_dijet_data|cr                                               
+                                     _data} DATASET                                                                           
                                                                                                                               
  Fetch training data for cal ratio.
 
 ╭─ Arguments ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    data_type      DATA_TYPE:{signal|qcd|data|bib}  Type of data to fetch (signal, qcd, data, bib) [required]             │
-│ *    dataset        TEXT                             The data source [required]                                            │
+│ *    data_type      DATA_TYPE:{signal|qcd|data|bib|ttbar|cr_ttbar|cr_d  Type of data to fetch (signal, qcd, data, bib,     │
+│                     ijet_mc|cr_dijet_data|cr_data}                      ttbar, cr_ttbar, cr_data, cr_dijet_mc,             │
+│                                                                         cr_dijet_data)                                     │
+│                                                                         [required]                                         │
+│ *    dataset        TEXT                                                The data source [required]                         │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --verbose       -v                   INTEGER  Increase verbosity level (use -v for INFO, -vv for DEBUG) [default: 0]       │
@@ -49,8 +53,11 @@ This command fetches the data from a sample and formats it as regular training i
 │                                               [default: rotation]                                                          │
 │ --sx-backend                         TEXT     ServiceX backend Name. Default is to use what is in your `servicex.yaml`     │
 │                                               file.                                                                        │
-│ --n-files       -n                   INTEGER  Number of files to process in the dataset. Default is to process all files.  │
-│ --help                                        Show this message and exit.                                                  │
+│ --n-files         -n                   INTEGER  Number of files to process in the dataset. Default is to process all       │
+│                                                 files.                                                                     │
+│ --sum-of-weights                       TEXT     YAML file mapping DSID to the sample's sum of generated weights. Required  │
+│                                                 for cr_dijet_mc.                                                           │
+│ --help                                          Show this message and exit.                                                │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -70,8 +77,36 @@ The dataset type:
 * `ttbar` - Will extract all good hadronic jets (per-jet EMF < 0.97) from ttbar events
 * `cr_ttbar` - Control region ttbar extraction (opposite-sign e-mu events, per-jet EMF > 0.97)
 * `cr_data` - Control region data extraction
+* `cr_dijet_mc` - Dijet control region MC extraction (see below)
+* `cr_dijet_data` - Dijet control region data extraction (see below)
 
-As of this writing only `qcd` and `signal` are implemented.
+#### The dijet control region
+
+`cr_dijet_mc` and `cr_dijet_data` select a QCD-dominated dijet control region. Events must fire
+`HLT_j400_pf_ftf_preselj225_L1J100` and contain at least two good training jets, and then pass all of:
+
+| Cut | Value |
+|-----|-------|
+| Leading jet pT | > 400 GeV |
+| Subleading jet pT | > 60 GeV |
+| \|Delta phi(lead, sublead)\| | > 3.0 rad |
+| Dijet pT asymmetry | < 0.3 |
+| H_T,Miss | < 120 GeV |
+
+Only the 5 leading jets per surviving event are written out. The cut values live in `constants.py` as the `CR_DIJET_*` constants.
+
+##### MC weighting
+
+For `cr_dijet_mc`, `mcEventWeight` is scaled by
+
+```text
+cross-section x kFactor x genFiltEff / sum of generated weights
+```
+
+The cross-section, k-factor and filter efficiency are looked up by DSID from the PMG cross-section database, read from the central CVMFS copy by default (`CALRATIO_PMG_XSEC_DB` overrides it).
+
+The sum of generated weights must be supplied separately, in a small YAML file keyed by DSID. For the dijet JZ2, JZ3, JZ4 samples this YAML file already exists as `sum_of_weights.yaml`. This flag is required when making dijet CR datasets. If the DSID is missing from the file then the run fails instead of producing an unnormalized dataset.
+
 
 ### Where can the data be located?
 

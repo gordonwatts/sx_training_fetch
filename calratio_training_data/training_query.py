@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 from math import sqrt
 from typing import Any, Dict, Generator, Optional
@@ -8,6 +9,7 @@ import uproot
 import numpy as np
 import servicex_local as sx_local
 import vector
+import yaml
 from func_adl import ObjectStream
 from func_adl_servicex_xaodr25 import FADLStream, FuncADLQueryPHYS
 from func_adl_servicex_xaodr25.calosampling import CaloSampling
@@ -26,7 +28,11 @@ from func_adl_servicex_xaodr25 import cpp_float
 from servicex import deliver
 
 from calratio_training_data.processing import do_rotations
-from calratio_training_data.triggers import trigger_bib_filter, trigger_cr_ttbar_filter
+from calratio_training_data.triggers import (
+    trigger_bib_filter,
+    trigger_cr_dijet_filter,
+    trigger_cr_ttbar_filter,
+)
 
 
 from calratio_training_data.constants import (
@@ -38,6 +44,12 @@ from calratio_training_data.constants import (
     LLP_Lxy_min,
     LLP_Lz_max,
     LLP_Lz_min,
+    CR_DIJET_ASYMMETRY_MAX,
+    CR_DIJET_DELTA_PHI_MIN,
+    CR_DIJET_HT_MISS_MAX,
+    CR_DIJET_LEAD_PT_MIN,
+    CR_DIJET_MAX_JETS,
+    CR_DIJET_SUBLEAD_PT_MIN,
     EventLabels,
     CREventLabels,
 )
@@ -52,7 +64,6 @@ from .cpp_xaod_utils import (
 
 from calratio_training_data.fetch import DataType
 
-
 vector.register_awkward()
 
 
@@ -66,6 +77,8 @@ class RunConfig:
     sx_backend: Optional[str] = None
     n_files: Optional[int] = None
     datatype: DataType = DataType.SIGNAL
+    # Required for CR_DIJET_MC; empty raises rather than silently skipping the scaling.
+    sum_of_weights_db: str = ""
 
 
 @dataclass
@@ -115,9 +128,16 @@ def build_preselection(data_type: DataType):
     if data_type == DataType.BIB:
         query_base = trigger_bib_filter(query_base)
 
+    # The ttbar control region needs electrons/muons, so it uses its own top level
+    # event shape. The dijet control region only needs jets, so it rides along on the
+    # standard one.
     is_cr = data_type in (DataType.CR_TTBAR, DataType.CR_DATA)
     if is_cr:
         query_base = trigger_cr_ttbar_filter(query_base)
+
+    is_cr_dijet = data_type in (DataType.CR_DIJET_MC, DataType.CR_DIJET_DATA)
+    if is_cr_dijet:
+        query_base = trigger_cr_dijet_filter(query_base)
 
     # Do top level object filtering
     if is_cr:
@@ -199,14 +219,135 @@ def build_preselection(data_type: DataType):
             )
         )
 
-    # Preselection
-    query_preselection = query_base_objects.Where(
-        lambda e: len(e.vertices) > 0  # type: ignore
-        and e.vertices.First().nTrackParticles() > 0
-        and len(e.jets) > 0  # type: ignore
-    )
+    # Preselection: the dijet CR needs at least 2 jets for its topology cuts.
+    if is_cr_dijet:
+        query_preselection = query_base_objects.Where(
+            lambda e: len(e.vertices) > 0  # type: ignore
+            and e.vertices.First().nTrackParticles() > 0
+            and len(e.jets) >= 2  # type: ignore
+        )
+    else:
+        query_preselection = query_base_objects.Where(
+            lambda e: len(e.vertices) > 0  # type: ignore
+            and e.vertices.First().nTrackParticles() > 0
+            and len(e.jets) > 0  # type: ignore
+        )
 
     return query_preselection
+
+
+# PMG cross-section database. Defaults to the central copy on CVMFS, which is available
+# on the grid and at most analysis facilities. Override with CALRATIO_PMG_XSEC_DB if you
+# need a local or newer copy.
+_DEFAULT_PMG_PATH = os.environ.get(
+    "CALRATIO_PMG_XSEC_DB",
+    "/cvmfs/atlas.cern.ch/repo/sw/database/GroupData/dev/PMGTools/PMGxsecDB_mc23.txt",
+)
+
+_pmg_cache: dict[str, dict[int, tuple[float, float, float]]] = {}
+
+
+def _load_pmg_db(pmg_xsec_db: str) -> dict[int, tuple[float, float, float]]:
+    """Parse the PMG text file once and cache by path."""
+
+    if pmg_xsec_db not in _pmg_cache:
+        db = {}
+        with open(os.path.expanduser(pmg_xsec_db)) as f:
+            raw_header = f.readline().strip()
+            col_names = [col.split("/")[0] for col in raw_header.split(":")]
+            for line in f:
+                fields = line.split()
+                if not fields:
+                    continue
+                row = dict(zip(col_names, fields))
+                db[int(row["dataset_number"])] = (
+                    float(row["crossSection_pb"]),
+                    float(row["kFactor"]),
+                    float(row["genFiltEff"]),
+                )
+        _pmg_cache[pmg_xsec_db] = db
+    return _pmg_cache[pmg_xsec_db]
+
+
+def _extract_dsid(ds_name: str) -> int:
+    """Extract the DSID integer from a dataset name.
+
+    Handles both scoped (scope:scope.DSID.tag...) and unscoped (scope.DSID.tag...) forms.
+    """
+    name_part = ds_name.split(":")[-1]
+    return int(name_part.split(".")[1])
+
+
+def get_cross_section(
+    dsid: int,
+    additional_branching_ratio: float | None = None,
+    additional_kfactor: float | None = None,
+    pmg_xsec_db: str = _DEFAULT_PMG_PATH,
+) -> float:
+    """Return crossSection_pb * kFactor * genFiltEff, optionally scaled further by
+    `additional_branching_ratio` and `additional_kfactor`."""
+
+    db = _load_pmg_db(pmg_xsec_db)
+    if dsid not in db:
+        raise ValueError(f"DSID {dsid} not found in {pmg_xsec_db}")
+    xsec, kfactor, filteff = db[dsid]
+    result = xsec * kfactor * filteff
+    if additional_branching_ratio is not None:
+        result *= additional_branching_ratio
+    if additional_kfactor is not None:
+        result *= additional_kfactor
+    return result
+
+
+# Sum of generated weights per DSID.
+# Supply the numbers in a small YAML file using --sum-of-weights flag
+# instead, keyed by DSID. There is deliberately no default: samples stitched
+# together must all be normalised from the same file.
+
+_sum_of_weights_cache: dict[str, dict[int, float]] = {}
+
+
+def _load_sum_of_weights_db(sum_of_weights_db: str) -> dict[int, float]:
+    """Parse the sum-of-weights YAML once and cache by path."""
+
+    if sum_of_weights_db not in _sum_of_weights_cache:
+        with open(os.path.expanduser(sum_of_weights_db)) as f:
+            raw = yaml.safe_load(f) or {}
+        _sum_of_weights_cache[sum_of_weights_db] = {
+            int(dsid): float(total) for dsid, total in raw.items()
+        }
+    return _sum_of_weights_cache[sum_of_weights_db]
+
+
+def get_sum_of_weights(dsid: int, sum_of_weights_db: str = "") -> float:
+    """Return the sum of generated weights for `dsid`.
+
+    This is the sum over *all* generated events, taken from the sample's
+    CutBookkeepers - not the sum over events that survive any selection. Dividing by
+    it is what lets several samples (e.g. JZ slices) be stacked together: each slice's
+    selection efficiency is then implicit in how many of its events survive.
+
+    Raises:
+        ValueError: if no database was configured, or `dsid` is not in it. Failing
+            here is deliberate - silently unscaled weights would quietly corrupt any
+            multi-sample stack.
+    """
+
+    if not sum_of_weights_db:
+        raise ValueError(
+            f"No sum-of-weights database given, so DSID {dsid} cannot be normalised. "
+            "Pass --sum-of-weights <file.yaml>."
+        )
+
+    db_path = sum_of_weights_db
+    db = _load_sum_of_weights_db(db_path)
+    if dsid not in db:
+        raise ValueError(f"DSID {dsid} not found in {db_path}")
+
+    total = db[dsid]
+    if total == 0.0:
+        raise ValueError(f"DSID {dsid} has a sum of weights of 0 in {db_path}")
+    return total
 
 
 def fetch_raw_training_data(
@@ -430,6 +571,7 @@ def convert_to_training_data(
     datatype: DataType,
     ds_name: str,
     rotation: bool = True,
+    mc_weight_scale: float = 1.0,
 ) -> ak.Array:
     """
     Convert raw data dictionary to training data format.
@@ -438,6 +580,10 @@ def convert_to_training_data(
         raw_data (Dict[str, ak.Array]): The raw data as returned by run_query.
         datatype (DataType): Type of data we are using, given by required command
                         line input.
+        ds_name (str): Name of the dataset being processed.
+        rotation (bool): Apply eta/phi rotations to the per-jet constituents.
+        mc_weight_scale (float): Extra factor applied to `mcEventWeight`. Used by the
+                        dijet control region to scale MC to the sample cross-section.
 
     Returns:
         ak.Record: The processed training data, suitable for writing to parquet.
@@ -657,6 +803,47 @@ def convert_to_training_data(
         jets = jets[emf_mask]
         clusters = clusters[emf_mask]
 
+    # Dijet control region: a back-to-back, balanced dijet system with little missing
+    # energy. Events must pass all five topology cuts, then continue through the
+    # standard per-jet processing below.
+    if datatype in (DataType.CR_DIJET_MC, DataType.CR_DIJET_DATA):
+        # Sort jets by pT descending so index 0 is leading, 1 is subleading.
+        # build_preselection guarantees >= 2 jets per event for the dijet CR.
+        pt_order = ak.argsort(jets.pt, axis=1, ascending=False)
+        jets_sorted = jets[pt_order]
+
+        lead = jets_sorted[:, 0]
+        sublead = jets_sorted[:, 1]
+
+        lead_pt_ok = lead.pt > CR_DIJET_LEAD_PT_MIN
+        sublead_pt_ok = sublead.pt > CR_DIJET_SUBLEAD_PT_MIN
+
+        # Back-to-back in the transverse plane.
+        dphi_ok = np.abs(lead.deltaphi(sublead)) > CR_DIJET_DELTA_PHI_MIN
+
+        # Balanced: reject events where a third jet has carried off momentum.
+        asym_ok = (lead.pt - sublead.pt) / (
+            lead.pt + sublead.pt
+        ) < CR_DIJET_ASYMMETRY_MAX
+
+        # Little missing energy, from the vector sum of the selected jet pT.
+        sum_px = ak.sum(jets.pt * np.cos(jets.phi), axis=1)
+        sum_py = ak.sum(jets.pt * np.sin(jets.phi), axis=1)
+        ht_miss_ok = np.sqrt(sum_px**2 + sum_py**2) < CR_DIJET_HT_MISS_MAX
+
+        event_mask = lead_pt_ok & sublead_pt_ok & dphi_ok & asym_ok & ht_miss_ok
+
+        jets = jets[event_mask]
+        clusters = clusters[event_mask]
+        tracks = tracks[event_mask]
+        msegs = msegs[event_mask]
+        msegs_p = msegs_p[event_mask]
+
+        # Keep only the leading jets by pT; events with fewer are kept as-is.
+        jet_order = ak.argsort(jets.pt, axis=1, ascending=False)[:, :CR_DIJET_MAX_JETS]
+        jets = jets[jet_order]
+        clusters = clusters[jet_order]
+
     # If there are no jets, then we don't need to do any of this.
     if len(jets) == 0:
         return ak.Array([])  # type: ignore
@@ -695,11 +882,19 @@ def convert_to_training_data(
         per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
             ak.broadcast_arrays(data["mcEventWeight"][event_mask], jets.pt)[0], axis=1
         )
-    if datatype in (DataType.BIB, DataType.CR_DATA):
-        # Giving BIB data mcEventWeight of 1
+    if datatype in (DataType.BIB, DataType.CR_DATA, DataType.CR_DIJET_DATA):
+        # Giving BIB data and control region data mcEventWeight of 1
         # Follows convention from CalRatioTrainer
         per_jet_training_data_dict["mcEventWeight"] = ak.Array(
             [1.0] * len(per_jet_training_data_dict["runNumber"])
+        )
+    if datatype == DataType.CR_DIJET_MC:
+        # Scale the generator weight so dijet CR MC can be compared against CR data.
+        per_jet_training_data_dict["mcEventWeight"] = ak.flatten(
+            ak.broadcast_arrays(
+                data["mcEventWeight"][event_mask] * mc_weight_scale, jets.pt
+            )[0],
+            axis=1,
         )
 
     # # The top level jet information.
@@ -791,6 +986,8 @@ def convert_to_training_data(
         DataType.TTBAR: EventLabels.ttbar.value,
         DataType.CR_TTBAR: CREventLabels.MC.value,
         DataType.CR_DATA: CREventLabels.data.value,
+        DataType.CR_DIJET_MC: CREventLabels.MC.value,
+        DataType.CR_DIJET_DATA: CREventLabels.data.value,
     }
     label_value = label_map[datatype]
 
@@ -854,13 +1051,30 @@ def fetch_training_data_to_file(ds_name: str, config: RunConfig):
 
 
 def fetch_training_data(ds_name, config: RunConfig):
-    raw_data = fetch_raw_training_data(ds_name, config)
-    for ar in raw_data:
+    # For CR_DIJET_MC files:
+    # Scale MC by cross-section / sum of generated weights. Multiplying by a
+    # single constant to avoid errors with sx splitting the output into files.
+    # Allows us to combine samples together directly - necessary for combining multiple JZ
+    # sample.
+
+    mc_weight_scale = 1.0
+    if config.datatype == DataType.CR_DIJET_MC:
+        dsid = _extract_dsid(ds_name)
+        mc_weight_scale = get_cross_section(dsid) / get_sum_of_weights(
+            dsid, config.sum_of_weights_db
+        )
+        logging.info(
+            f"DSID {dsid}: scaling mcEventWeight by {mc_weight_scale:.6g} "
+            "(cross-section / sum of generated weights)."
+        )
+
+    for ar in fetch_raw_training_data(ds_name, config):
         yield convert_to_training_data(
             ar,
             datatype=config.datatype,
             ds_name=ds_name,
             rotation=config.rotation,
+            mc_weight_scale=mc_weight_scale,
         )
 
 

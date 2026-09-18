@@ -6,7 +6,6 @@ from pathlib import Path
 
 import typer
 
-
 app = typer.Typer()
 
 
@@ -39,6 +38,8 @@ class DataType(str, Enum):
     BIB = "bib"
     TTBAR = "ttbar"
     CR_TTBAR = "cr_ttbar"
+    CR_DIJET_MC = "cr_dijet_mc"
+    CR_DIJET_DATA = "cr_dijet_data"
     CR_DATA = "cr_data"
 
 
@@ -46,7 +47,10 @@ class DataType(str, Enum):
 def fetch_command(
     data_type: DataType = typer.Argument(
         ...,
-        help="Type of data to fetch (signal, qcd, data, bib, ttbar, cr_ttbar, cr_data)",
+        help=(
+            "Type of data to fetch (signal, qcd, data, bib, ttbar, cr_ttbar, "
+            "cr_data, cr_dijet_mc, cr_dijet_data)"
+        ),
     ),
     dataset: str = typer.Argument(..., help="The data source"),
     verbosity: int = typer.Option(
@@ -89,6 +93,12 @@ def fetch_command(
         "-n",
         help="Number of files to process in the dataset. Default is to process all files.",
     ),
+    sum_of_weights: Optional[str] = typer.Option(
+        None,
+        "--sum-of-weights",
+        help="YAML file mapping DSID to the sample's sum of generated weights. "
+        "Required for cr_dijet_mc.",
+    ),
 ):
     """
     Fetch training data for cal ratio.
@@ -107,6 +117,7 @@ def fetch_command(
         sx_backend=sx_backend,
         n_files=n_files,
         datatype=data_type,
+        sum_of_weights_db=sum_of_weights or "",
     )
     fetch_training_data_to_file(dataset, run_config)
 

@@ -80,3 +80,17 @@ CR_TTBAR_TRIGGER = [
         "HLT_e7_lhmedium_L1eEM5_mu24_L1MU14FCH",  # data 23 to 25
     )
 ]
+
+# Single-jet trigger used to collect the dijet control region.
+CR_DIJET_TRIGGER = ["HLT_j400_pf_ftf_preselj225_L1J100"]
+
+# Dijet control region event selection. The region is a back-to-back, balanced
+# dijet system with little missing energy, which gives a QCD-dominated sample.
+CR_DIJET_LEAD_PT_MIN = 400.0  # GeV
+CR_DIJET_SUBLEAD_PT_MIN = 60.0  # GeV
+CR_DIJET_DELTA_PHI_MIN = 3.0  # radians
+CR_DIJET_ASYMMETRY_MAX = 0.3
+CR_DIJET_HT_MISS_MAX = 120.0  # GeV
+
+# Number of leading jets per event written out for the dijet control region.
+CR_DIJET_MAX_JETS = 5
