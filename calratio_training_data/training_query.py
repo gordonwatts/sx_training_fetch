@@ -44,14 +44,13 @@ from calratio_training_data.constants import (
 
 from .cpp_xaod_utils import (
     add_jet_selection_tool,
-    cvt_to_raw_calocluster,
-    jet_clean_llp,
+    cvt_flow_element_to_calocluster,
+    is_neutral_flow_element,
     track_summary_value,
     particle_radiates,
 )
 
 from calratio_training_data.fetch import DataType
-
 
 vector.register_awkward()
 
@@ -98,11 +97,8 @@ class CRTopLevelEvent(TopLevelEvent):
 
 def good_training_jet(jet: Jet_v1) -> bool:
     """Check that the jet is suitable for training"""
-    return (
-        (jet.pt() / 1000.0 > 40 and jet.pt() / 1000.0 < 500)
-        and abs(jet.eta()) < 2.5
-        and jet_clean_llp(jet)
-    )
+    # TODO: jet_clean_llp (LooseBadLLP) removed while testing PFlow jets
+    return (jet.pt() / 1000.0 > 40 and jet.pt() / 1000.0 < 500) and abs(jet.eta()) < 2.5
 
 
 def build_preselection(data_type: DataType):
@@ -137,16 +133,16 @@ def build_preselection(data_type: DataType):
                 muon_segments=e.MuonSegments("MuonSegments"),
                 jets=[
                     j
-                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    for j in e.Jets(collection="AntiKt4EMPFlowJets", calibrate=False)
                     if good_training_jet(j)
                 ],  # type: ignore
                 jet_clusters=[
                     [
-                        cvt_to_raw_calocluster(cl)
+                        cvt_flow_element_to_calocluster(cl)
                         for cl in j.constituentLinks()
-                        if cl.isValid()
+                        if cl.isValid() and is_neutral_flow_element(cl)
                     ]
-                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    for j in e.Jets(collection="AntiKt4EMPFlowJets", calibrate=False)
                     if good_training_jet(j)
                 ],  # type: ignore
                 all_tracks=e.TrackParticles("InDetTrackParticles"),
@@ -177,16 +173,16 @@ def build_preselection(data_type: DataType):
                 muon_segments=e.MuonSegments("MuonSegments"),
                 jets=[
                     j
-                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    for j in e.Jets(collection="AntiKt4EMPFlowJets", calibrate=False)
                     if good_training_jet(j)
                 ],  # type: ignore
                 jet_clusters=[
                     [
-                        cvt_to_raw_calocluster(cl)
+                        cvt_flow_element_to_calocluster(cl)
                         for cl in j.constituentLinks()
-                        if cl.isValid()
+                        if cl.isValid() and is_neutral_flow_element(cl)
                     ]
-                    for j in e.Jets(collection="AntiKt4EMTopoJets", calibrate=False)
+                    for j in e.Jets(collection="AntiKt4EMPFlowJets", calibrate=False)
                     if good_training_jet(j)
                 ],  # type: ignore
                 all_tracks=e.TrackParticles("InDetTrackParticles"),
@@ -730,7 +726,7 @@ def convert_to_training_data(
 
     # Using mask to remove jets with no clusters
     counts = ak.num(per_jet_training_data_dict["clusters"].pt)
-    empty_mask = counts > 0
+    empty_mask = counts == 0
 
     # Warning for empty jets
     if len(empty_mask) - sum(empty_mask) > 0:

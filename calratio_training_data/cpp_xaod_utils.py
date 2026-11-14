@@ -119,6 +119,120 @@ def cvt_to_raw_calocluster(
     ...
 
 
+def _link_xaod_pflow(s: ObjectStream[T]) -> ObjectStream[T]:
+    """Link against xAODPFlow, needed for the FlowElement methods.
+
+    `add_cpp_function` metadata ignores `link_libraries`, so this has to go in
+    through an `inject_code` block.
+    """
+    return s.MetaData(
+        {
+            "metadata_type": "inject_code",
+            "name": "link_xaod_pflow",
+            "link_libraries": ["xAODPFlow"],
+        }
+    )
+
+
+def is_neutral_flow_element_callback(
+    s: ObjectStream[T], a: ast.Call
+) -> Tuple[ObjectStream[T], ast.Call]:
+    """Check that a PFlow jet constituent is a neutral FlowElement with a cluster link
+
+    Args:
+        s (ObjectStream[T]): The stream we are operating against
+        a (ast.Call): The actual call
+
+    Returns:
+        Tuple[ObjectStream[T], ast.Call]: Return the updated stream with the metadata code.
+    """
+    new_s = _link_xaod_pflow(s).MetaData(
+        {
+            "metadata_type": "add_cpp_function",
+            "name": "is_neutral_flow_element",
+            "code": [
+                "const xAOD::FlowElement* fe = dynamic_cast<const xAOD::FlowElement*>(*link)",
+                "bool result = (fe != nullptr) && !fe->isCharged() "
+                "&& (fe->nOtherObjects() > 0) && (fe->otherObject(0) != nullptr)",
+            ],
+            "result": "result",
+            "include_files": ["xAODPFlow/FlowElement.h"],
+            "arguments": ["link"],
+            "return_type": "bool",
+        }
+    )
+
+    return new_s, a
+
+
+@func_adl_callable(is_neutral_flow_element_callback)
+def is_neutral_flow_element(
+    link: ElementLink_DataVector_xAOD_IParticle__,
+) -> bool:
+    """
+    Check that a PFlow jet constituent link points to a neutral FlowElement that has
+    an associated calorimeter cluster. Charged FlowElements point to tracks and
+    have no calorimeter layer energies.
+
+    Args:
+        link (ElementLink_DataVector_xAOD_IParticle__): The jet constituent link.
+
+    Returns:
+        bool: True if the constituent is a neutral FlowElement with a cluster.
+    """
+    ...
+
+
+def cvt_flow_element_to_calocluster_callback(
+    s: ObjectStream[T], a: ast.Call
+) -> Tuple[ObjectStream[T], ast.Call]:
+    """Use dynamic cast to go from a neutral FlowElement to its CaloCluster
+
+    Args:
+        s (ObjectStream[T]): The stream we are operating against
+        a (ast.Call): The actual call
+
+    Returns:
+        Tuple[ObjectStream[T], ast.Call]: Return the updated stream with the metadata code.
+    """
+    new_s = _link_xaod_pflow(s).MetaData(
+        {
+            "metadata_type": "add_cpp_function",
+            "name": "cvt_flow_element_to_calocluster",
+            "code": [
+                "const xAOD::FlowElement* fe = dynamic_cast<const xAOD::FlowElement*>(*link)",
+                "const xAOD::CaloCluster* result = dynamic_cast<const xAOD::CaloCluster*> "
+                "(fe->otherObject(0))",
+            ],
+            "result": "result",
+            "include_files": ["xAODPFlow/FlowElement.h", "xAODCaloEvent/CaloCluster.h"],
+            "arguments": ["link"],
+            "return_type": "const xAOD::CaloCluster_v1*",
+        }
+    )
+
+    return new_s, a
+
+
+@func_adl_callable(cvt_flow_element_to_calocluster_callback)
+def cvt_flow_element_to_calocluster(
+    link: ElementLink_DataVector_xAOD_IParticle__,
+) -> CaloCluster_v1:
+    """
+    Converts a link to a neutral PFlow FlowElement to its CaloCluster_v1 object.
+
+    Only call this on links that pass `is_neutral_flow_element`, otherwise a null
+    pointer will be dereferenced.
+
+    Args:
+        link (ElementLink_DataVector_xAOD_IParticle__): The jet constituent link.
+
+    Returns:
+        CaloCluster_v1: The cluster associated with the neutral FlowElement.
+    """
+    ...
+
+
 def add_jet_selection_tool(
     stream: ObjectStream[T], tool_name: str, cut_name: str
 ) -> ObjectStream[T]:
