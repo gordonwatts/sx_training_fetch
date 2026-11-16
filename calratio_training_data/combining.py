@@ -12,6 +12,7 @@ import numpy as np
 class InputSpec:
     pattern: str
     num_jets: Optional[int] = None
+    event_filter: Optional[str] = None  # None -> use global filter
 
 
 def parse_input_spec(text: str) -> InputSpec:
@@ -45,6 +46,7 @@ def load_yaml_config(path: Path) -> CombineConfig:
         InputSpec(
             pattern=item["path"],
             num_jets=item.get("num-jets"),
+            event_filter=item.get("event-filter"),
         )
         for item in data["input-files"]
     ]
@@ -67,7 +69,7 @@ def expand_inputs(inputs):
             raise RuntimeError(f"No files match pattern: {spec.pattern}")
 
         for f in files:
-            expanded.append((Path(f), spec.num_jets))
+            expanded.append((Path(f), spec))
 
     return expanded
 
@@ -91,13 +93,9 @@ def _unify_schema(arrays):
         for field in all_fields:
             if field not in fields:
                 if field == "desc_label":
-                    arr = ak.with_field(
-                        arr, ak.Array([""] * len(arr)), field
-                    )
+                    arr = ak.with_field(arr, ak.Array([""] * len(arr)), field)
                 else:
-                    arr = ak.with_field(
-                        arr, ak.full_like(arr["label"], 0), field
-                    )
+                    arr = ak.with_field(arr, ak.full_like(arr["label"], 0), field)
         arr = ak.with_field(
             arr, ak.values_astype(arr["mcEventWeight"], "float64"), "mcEventWeight"
         )
@@ -112,24 +110,31 @@ def combine_training_data(config: CombineConfig):
 
     expanded = expand_inputs(config.inputs)
 
-    for file_path, num_jets in expanded:
+    for file_path, spec in expanded:
 
         arr = ak.from_parquet(file_path)
 
-        if config.event_filter:
-            m = re.search(r"% (\d+)\s*==\s*(\d+)", config.event_filter)
+        # Per-file filter wins; otherwise fall back to the global one
+        event_filter = (
+            spec.event_filter if spec.event_filter is not None else config.event_filter
+        )
+
+        if event_filter and event_filter.strip().lower() != "none":
+            m = re.search(r"% (\d+)\s*==\s*(\d+)", event_filter)
             mask = arr["eventNumber"] % int(m.group(1)) == int(m.group(2))
             arr = arr[mask]
 
-        if num_jets is not None:
-            if num_jets > len(arr):
+        if spec.num_jets is not None:
+            if spec.num_jets > len(arr):
                 print(
                     "Input num-jets is greater than number of jets in file, "
                     "instead including all jets"
                 )
             else:
                 # Randomly selecting jets (rows)
-                random_indices = np.random.choice(len(arr), num_jets, replace=False)
+                random_indices = np.random.choice(
+                    len(arr), spec.num_jets, replace=False
+                )
                 arr = arr[random_indices]
 
         arrays.append(arr)
